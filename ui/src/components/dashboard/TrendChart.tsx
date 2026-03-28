@@ -34,7 +34,7 @@ export default function TrendChart() {
 
   const { chartData, providerKeys, isLive } = useMemo(() => {
     const completedRuns = (runs ?? [])
-      .filter((r) => r.status === "completed" && (r.scores?.length ?? 0) > 0)
+      .filter((r) => r.status === "completed" && Array.isArray(r.scores) && r.scores.length > 0)
       .sort((a, b) => a.created_at - b.created_at);
 
     if (completedRuns.length < 2) {
@@ -53,7 +53,7 @@ export default function TrendChart() {
 
       // Mean NDCG per provider in this run
       const ndcgByProvider: Record<string, number[]> = {};
-      for (const score of run.scores) {
+      for (const score of run.scores ?? []) {
         allProviders.add(score.provider);
         if (!ndcgByProvider[score.provider]) ndcgByProvider[score.provider] = [];
         ndcgByProvider[score.provider].push(score.ndcg_at_k);

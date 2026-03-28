@@ -45,7 +45,7 @@ export default function ProviderComparison() {
 
   const { metrics, isLive } = useMemo(() => {
     const completedRuns = (runs ?? [])
-      .filter((r) => r.status === "completed" && (r.scores?.length ?? 0) > 0)
+      .filter((r) => r.status === "completed" && Array.isArray(r.scores) && r.scores.length > 0)
       .sort((a, b) => b.created_at - a.created_at);
 
     if (completedRuns.length === 0) {
@@ -55,7 +55,7 @@ export default function ProviderComparison() {
     const latestRun = completedRuns[0];
     const byProvider: Record<string, ProviderMetrics> = {};
 
-    for (const score of latestRun.scores) {
+    for (const score of latestRun.scores ?? []) {
       if (!byProvider[score.provider]) {
         byProvider[score.provider] = {
           precision: 0,
@@ -69,7 +69,7 @@ export default function ProviderComparison() {
 
     // Aggregate mean per provider
     const counts: Record<string, number> = {};
-    for (const score of latestRun.scores) {
+    for (const score of latestRun.scores ?? []) {
       const p = score.provider;
       counts[p] = (counts[p] ?? 0) + 1;
       byProvider[p].precision += score.precision_at_k;
