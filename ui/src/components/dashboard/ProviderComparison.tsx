@@ -39,11 +39,9 @@ const MOCK_DATA: Record<string, ProviderMetrics> = {
 };
 
 const METRICS: { key: keyof Omit<ProviderMetrics, "latency">; label: string }[] = [
-  { key: "precision", label: "P@K" },
-  { key: "recall", label: "R@K" },
-  { key: "ndcg", label: "NDCG" },
-  { key: "mrr", label: "MRR" },
-  { key: "map", label: "MAP" },
+  { key: "ndcg", label: "NDCG@K" },
+  { key: "map", label: "MAP@K" },
+  { key: "recall", label: "Recall@K" },
 ];
 
 export default function ProviderComparison() {
@@ -171,29 +169,6 @@ export default function ProviderComparison() {
             ))}
           </div>
 
-          {/* Latency grid */}
-          <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Average Latency
-            </p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {providers.map((p) => (
-                <motion.div
-                  key={p}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3, delay: 0.2 }}
-                  className="rounded-lg border bg-secondary/50 p-3 text-center"
-                >
-                  <p className={`font-mono-brand text-lg font-bold ${PROVIDER_TEXT_COLORS[p] ?? "text-foreground"}`}>
-                    {Math.round(metrics[p].latency)}
-                    <span className="text-xs font-normal text-muted-foreground">ms</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground capitalize">{p}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
         </CardContent>
       </Card>
     </motion.div>
