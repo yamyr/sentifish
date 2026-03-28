@@ -17,9 +17,9 @@ from urllib.parse import quote_plus
 import httpx
 
 API_URL = "https://agent.tinyfish.ai/v1/automation/run-sse"
-API_KEY = os.environ.get(
-    "TINYFISH_API_KEY", "sk-tinyfish-V4YFytYNQ19UQLHHeI9bzD7ChFDmPB_x"
-)
+API_KEY = os.environ.get("TINYFISH_API_KEY")
+if not API_KEY:
+    raise RuntimeError("TINYFISH_API_KEY environment variable is required")
 TIMEOUT = 120.0
 CONCURRENCY = 25  # max parallel agents
 OUTPUT_DIR = Path("search_results")

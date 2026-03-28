@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import re
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -11,9 +13,22 @@ from . import datasets as ds
 from . import narrator
 from . import runner
 from .config import settings
-from .providers import available_providers
+from .providers import PROVIDERS, available_providers
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
+
+_UUID_RE = re.compile(
+    r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _validate_run_id(run_id: str) -> str:
+    if not _UUID_RE.match(run_id):
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    return run_id
 
 
 # -- Providers ---------------------------------------------------------------
@@ -45,8 +60,8 @@ def list_datasets():
 def get_dataset(name: str):
     try:
         dataset = ds.load_dataset(name)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Resource not found")
     return dataset.model_dump()
 
 
@@ -54,8 +69,11 @@ def get_dataset(name: str):
 def create_dataset(body: dict):
     try:
         dataset = ds.load_dataset_from_dict(body)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid request data")
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        logger.exception("Failed to create dataset: %s", exc)
+        raise HTTPException(status_code=400, detail="Invalid request data")
     ds.save_dataset(dataset)
     return {"ok": True, "name": dataset.name, "cases": dataset.size}
 
@@ -78,17 +96,19 @@ def list_runs():
 
 @router.get("/runs/{run_id}")
 def get_run(run_id: str):
+    _validate_run_id(run_id)
     run = runner.get_run(run_id)
     if run is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id!r}")
+        raise HTTPException(status_code=404, detail="Resource not found")
     return run.model_dump()
 
 
 @router.get("/runs/{run_id}/summary")
 def get_run_summary(run_id: str):
+    _validate_run_id(run_id)
     run = runner.get_run(run_id)
     if run is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id!r}")
+        raise HTTPException(status_code=404, detail="Resource not found")
     return {
         "id": run.id,
         "dataset_name": run.dataset_name,
@@ -103,6 +123,8 @@ def get_run_summary(run_id: str):
 @router.get("/runs/{run_id}/narration/text")
 def get_narration_text(run_id: str):
     """Return narration text for an eval run (cached after first generation)."""
+    _validate_run_id(run_id)
+
     # Serve from cache if available
     cached = narrator.get_cached_text(run_id)
     if cached is not None:
@@ -110,7 +132,7 @@ def get_narration_text(run_id: str):
 
     run = runner.get_run(run_id)
     if run is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id!r}")
+        raise HTTPException(status_code=404, detail="Resource not found")
     narration_text = narrator.generate_narration(run)
 
     # Only cache completed runs (in-progress narrations may change)
@@ -123,6 +145,8 @@ def get_narration_text(run_id: str):
 @router.get("/runs/{run_id}/narration/audio")
 async def get_narration_audio(run_id: str):
     """Return narration audio (MP3) for an eval run (cached after first synthesis)."""
+    _validate_run_id(run_id)
+
     if not settings.elevenlabs_api_key:
         raise HTTPException(
             status_code=503,
@@ -140,7 +164,7 @@ async def get_narration_audio(run_id: str):
 
     run = runner.get_run(run_id)
     if run is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id!r}")
+        raise HTTPException(status_code=404, detail="Resource not found")
 
     # Generate text (use cached text if available)
     narration_text = narrator.get_cached_text(run_id)
@@ -169,17 +193,33 @@ async def create_run(body: dict):
     """
     dataset_name = body.get("dataset")
     provider_names = body.get("providers")
-    top_k = body.get("top_k", 10)
+
+    raw_top_k = body.get("top_k", 10)
+    try:
+        top_k = max(1, min(int(raw_top_k), 100))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="top_k must be an integer between 1 and 100",
+        )
 
     if not dataset_name:
         raise HTTPException(status_code=400, detail="'dataset' is required")
     if not provider_names:
         raise HTTPException(status_code=400, detail="'providers' list is required")
 
+    # Validate provider names against the known registry
+    unknown = set(provider_names) - set(PROVIDERS)
+    if unknown:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown provider(s): {', '.join(sorted(unknown))}",
+        )
+
     try:
         dataset = ds.load_dataset(dataset_name)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Resource not found")
 
     run = runner.create_run(dataset, provider_names, top_k)
     asyncio.create_task(runner.execute_run(run, dataset, provider_names, top_k))
