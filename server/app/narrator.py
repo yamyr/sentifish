@@ -94,42 +94,36 @@ def generate_narration(run: EvalRun) -> str:
         f"with {num_queries} queries across {provider_list}."
     )
 
-    # Per-provider metrics (NDCG, MAP, Recall)
+    # Per-provider metrics
     for provider, metrics in summary.items():
         ndcg = metrics.get("mean_ndcg_at_k", 0.0)
         map_score = metrics.get("mean_map_at_k", 0.0)
         recall = metrics.get("mean_recall_at_k", 0.0)
+        depth = metrics.get("mean_content_depth", 0.0)
 
         lines.append(
             f"{provider.capitalize()} achieved an NDCG of {ndcg:.2f}, "
-            f"MAP of {map_score:.2f}, and recall of {recall:.2f}."
+            f"MAP of {map_score:.2f}, recall of {recall:.2f}, "
+            f"and content depth of {depth:.2f}."
         )
 
     # Comparative insight
-    best_ndcg_provider = max(summary, key=lambda p: summary[p].get("mean_ndcg_at_k", 0.0))
-    best_map_provider = max(summary, key=lambda p: summary[p].get("mean_map_at_k", 0.0))
-    best_recall_provider = max(summary, key=lambda p: summary[p].get("mean_recall_at_k", 0.0))
+    best_ndcg_prov = max(summary, key=lambda p: summary[p].get("mean_ndcg_at_k", 0.0))
+    best_map_prov = max(summary, key=lambda p: summary[p].get("mean_map_at_k", 0.0))
+    best_depth_prov = max(summary, key=lambda p: summary[p].get("mean_content_depth", 0.0))
 
-    best_ndcg = summary[best_ndcg_provider]["mean_ndcg_at_k"]
-    best_map = summary[best_map_provider]["mean_map_at_k"]
+    best_ndcg = summary[best_ndcg_prov]["mean_ndcg_at_k"]
+    best_depth = summary[best_depth_prov]["mean_content_depth"]
 
-    if best_ndcg_provider == best_map_provider:
-        lines.append(
-            f"Overall, {best_ndcg_provider.capitalize()} leads on both ranking quality "
-            f"and precision, with the highest NDCG of {best_ndcg:.2f} and MAP of {best_map:.2f}."
-        )
-    else:
-        lines.append(
-            f"Overall, {best_ndcg_provider.capitalize()} delivered the best ranking quality "
-            f"with an NDCG of {best_ndcg:.2f}, while {best_map_provider.capitalize()} "
-            f"achieved the highest precision with a MAP of {best_map:.2f}."
-        )
+    lines.append(
+        f"Overall, {best_ndcg_prov.capitalize()} delivered the best ranking quality "
+        f"with an NDCG of {best_ndcg:.2f}."
+    )
 
-    if best_recall_provider not in (best_ndcg_provider, best_map_provider):
-        best_recall = summary[best_recall_provider]["mean_recall_at_k"]
+    if best_depth_prov != best_ndcg_prov:
         lines.append(
-            f"{best_recall_provider.capitalize()} showed the strongest coverage "
-            f"with a recall of {best_recall:.2f}."
+            f"{best_depth_prov.capitalize()} leads on content depth at {best_depth:.2f}, "
+            f"returning the richest snippets from its search results."
         )
 
     return " ".join(lines)
