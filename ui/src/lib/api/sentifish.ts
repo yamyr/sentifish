@@ -33,6 +33,7 @@ export interface QueryScore {
   ndcg_at_k: number;
   mrr: number;
   map_at_k: number;
+  content_depth: number;
   latency_ms: number;
   result_count: number;
   results: SearchResult[];
