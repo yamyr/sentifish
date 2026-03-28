@@ -4,6 +4,7 @@ import BenchmarkTable from "@/components/landing/BenchmarkTable";
 import HowItWorks from "@/components/landing/HowItWorks";
 import MetricsExplained from "@/components/landing/MetricsExplained";
 import WhySentifish from "@/components/landing/WhySentifish";
+import Roadmap from "@/components/landing/Roadmap";
 import CtaBanner from "@/components/landing/CtaBanner";
 import Footer from "@/components/landing/Footer";
 
@@ -15,6 +16,7 @@ const Landing = () => (
     <HowItWorks />
     <MetricsExplained />
     <WhySentifish />
+    <Roadmap />
     <CtaBanner />
     <Footer />
   </div>

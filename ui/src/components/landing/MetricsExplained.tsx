@@ -53,31 +53,39 @@ const metrics: Metric[] = [
   },
 ];
 
-const colorMap: Record<string, { bg: string; ring: string; text: string }> = {
+const colorMap: Record<
+  string,
+  { bg: string; ring: string; text: string; hoverShadow: string }
+> = {
   "brand-indigo": {
     bg: "bg-brand-indigo/10",
     ring: "ring-brand-indigo/20",
     text: "text-brand-indigo",
+    hoverShadow: "hover:shadow-brand-indigo/25",
   },
   "brand-cyan": {
     bg: "bg-brand-cyan/10",
     ring: "ring-brand-cyan/20",
     text: "text-brand-cyan",
+    hoverShadow: "hover:shadow-brand-cyan/25",
   },
   success: {
     bg: "bg-success/10",
     ring: "ring-success/20",
     text: "text-success",
+    hoverShadow: "hover:shadow-success/25",
   },
   warning: {
     bg: "bg-warning/10",
     ring: "ring-warning/20",
     text: "text-warning",
+    hoverShadow: "hover:shadow-warning/25",
   },
   destructive: {
     bg: "bg-destructive/10",
     ring: "ring-destructive/20",
     text: "text-destructive",
+    hoverShadow: "hover:shadow-destructive/25",
   },
 };
 
@@ -97,7 +105,10 @@ const MetricsExplained = () => (
             Metrics
           </p>
           <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground">
-            What We Measure
+            What We{" "}
+            <span className="bg-gradient-to-r from-brand-cyan to-brand-indigo bg-clip-text text-transparent">
+              Measure
+            </span>
           </h2>
           <p className="mt-4 text-base leading-relaxed text-muted-foreground">
             Standard Information Retrieval metrics used by researchers and
@@ -108,7 +119,7 @@ const MetricsExplained = () => (
         {/* Right column — metric rows */}
         <div className="md:col-span-3">
           {metrics.map(({ name, explanation, Icon, color }, index) => {
-            const { bg, ring, text } = colorMap[color];
+            const { bg, ring, text, hoverShadow } = colorMap[color];
 
             return (
               <motion.div
@@ -121,12 +132,12 @@ const MetricsExplained = () => (
                   delay: index * 0.08,
                   ease: "easeOut",
                 }}
-                className={`flex items-start gap-4 py-5${
+                className={`flex items-start gap-4 py-5 hover:bg-secondary/50 rounded-lg px-3 -mx-3 transition-colors duration-200${
                   index < metrics.length - 1 ? " border-b border-border" : ""
                 }`}
               >
                 <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${bg} ring-1 ${ring}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${bg} ring-1 ${ring} transition-shadow duration-300 hover:shadow-lg ${hoverShadow}`}
                 >
                   <Icon className={`h-5 w-5 ${text}`} />
                 </div>

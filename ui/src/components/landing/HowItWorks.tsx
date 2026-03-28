@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -93,7 +91,7 @@ const HowItWorks = () => {
             Workflow
           </p>
           <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground sm:text-4xl">
-            Three Steps to Better Search
+            Three Steps to <span className="bg-gradient-to-r from-brand-cyan to-brand-indigo bg-clip-text text-transparent">Better Search</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
             From dataset to decision in minutes.
@@ -107,7 +105,7 @@ const HowItWorks = () => {
         >
           {/* Tab buttons */}
           <div className="flex justify-center">
-            <div className="inline-flex gap-1 rounded-xl border border-border bg-card p-1">
+            <div className="gradient-border inline-flex gap-1 rounded-xl border border-border bg-card p-1">
               {steps.map((step) => {
                 const isActive = step.id === activeTab;
                 return (
@@ -116,7 +114,7 @@ const HowItWorks = () => {
                     onClick={() => handleTabClick(step.id)}
                     className={`relative rounded-lg px-5 py-2.5 text-sm transition-colors ${
                       isActive
-                        ? "bg-brand-cyan/10 font-semibold text-foreground"
+                        ? "bg-brand-cyan/10 font-semibold text-foreground shadow-sm shadow-brand-cyan/20"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -130,7 +128,7 @@ const HowItWorks = () => {
                           width: "0%",
                           animation: paused
                             ? "none"
-                            : `progressFill ${INTERVAL_MS}ms linear forwards`,
+                            : `progress-fill ${INTERVAL_MS}ms linear forwards`,
                         }}
                       />
                     )}
@@ -143,7 +141,7 @@ const HowItWorks = () => {
           {/* GIF display area */}
           <div className="mx-auto mt-8 max-w-4xl">
             {/* Browser chrome frame */}
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="glow-indigo overflow-hidden rounded-2xl border border-border bg-card">
               {/* Top bar */}
               <div className="flex items-center gap-2 border-b border-border px-4 py-3">
                 <span className="h-3 w-3 rounded-full bg-red-500/70" />
@@ -176,14 +174,6 @@ const HowItWorks = () => {
           </div>
         </div>
       </div>
-
-      {/* Keyframe for progress bar */}
-      <style>{`
-        @keyframes progressFill {
-          from { width: 0%; }
-          to   { width: 100%; }
-        }
-      `}</style>
     </section>
   );
 };
