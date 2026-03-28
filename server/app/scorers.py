@@ -34,14 +34,16 @@ def precision_at_k(returned_urls: list[str], relevant_urls: set[str], k: int) ->
 
 def recall_at_k(returned_urls: list[str], relevant_urls: set[str], k: int) -> float:
     """Recall@K: fraction of all relevant URLs that appear in top-K results."""
+    if k <= 0:
+        return 0.0
     if not relevant_urls:
         return 1.0  # no relevant URLs → trivially complete recall
     rels = _build_relevance_vector(returned_urls[:k], relevant_urls)
     return sum(rels) / len(relevant_urls)
 
 
-def mrr(returned_urls: list[str], relevant_urls: set[str]) -> float:
-    """Mean Reciprocal Rank: 1/rank of the first relevant result."""
+def reciprocal_rank(returned_urls: list[str], relevant_urls: set[str]) -> float:
+    """Reciprocal Rank: 1/rank of the first relevant result (averaged externally for MRR)."""
     rels = _build_relevance_vector(returned_urls, relevant_urls)
     for i, rel in enumerate(rels):
         if rel == 1:
@@ -62,8 +64,9 @@ def ndcg_at_k(returned_urls: list[str], relevant_urls: set[str], k: int) -> floa
     rels = _build_relevance_vector(returned_urls[:k], relevant_urls)
     actual_dcg = dcg_at_k(rels, k)
 
-    # Ideal: all relevant docs at the top
-    ideal_rels = sorted(rels, reverse=True)
+    # Ideal: ALL ground-truth relevant docs placed at the top, not just those found
+    n_relevant = len(relevant_urls)
+    ideal_rels = [1] * min(n_relevant, k) + [0] * max(0, k - n_relevant)
     ideal_dcg = dcg_at_k(ideal_rels, k)
 
     if ideal_dcg == 0.0:
@@ -95,6 +98,6 @@ def score_query(returned_urls: list[str], relevant_urls: set[str], k: int) -> di
         "precision_at_k": precision_at_k(returned_urls, relevant_urls, k),
         "recall_at_k": recall_at_k(returned_urls, relevant_urls, k),
         "ndcg_at_k": ndcg_at_k(returned_urls, relevant_urls, k),
-        "mrr": mrr(returned_urls, relevant_urls),
+        "mrr": reciprocal_rank(returned_urls, relevant_urls),
         "map_at_k": average_precision(returned_urls, relevant_urls, k),
     }
