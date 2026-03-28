@@ -17,6 +17,33 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 };
 
+/** Color token map used for the icon container and the provider dot. */
+const colorMap: Record<
+  string,
+  { bg: string; ring: string; dot: string }
+> = {
+  "text-brand-indigo": {
+    bg: "bg-brand-indigo/10",
+    ring: "ring-brand-indigo/20",
+    dot: "bg-brand-indigo",
+  },
+  "text-success": {
+    bg: "bg-success/10",
+    ring: "ring-success/20",
+    dot: "bg-success",
+  },
+  "text-warning": {
+    bg: "bg-warning/10",
+    ring: "ring-warning/20",
+    dot: "bg-warning",
+  },
+  "text-brand-cyan": {
+    bg: "bg-brand-cyan/10",
+    ring: "ring-brand-cyan/20",
+    dot: "bg-brand-cyan",
+  },
+};
+
 export default function StatCards() {
   const { data: runs } = useRuns();
 
@@ -97,21 +124,31 @@ export default function StatCards() {
     >
       {cards.map((card) => {
         const Icon = card.icon;
+        const palette = colorMap[card.color];
         return (
           <motion.div key={card.label} variants={item}>
-            <Card className="relative overflow-hidden">
+            <Card
+              className={`gradient-border relative overflow-hidden bg-gradient-to-br from-card to-secondary/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300`}
+            >
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     {card.label}
                   </p>
-                  <Icon className={`h-4 w-4 ${card.color}`} />
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${palette.bg} ring-1 ${palette.ring}`}
+                  >
+                    <Icon className={`h-4 w-4 ${card.color}`} />
+                  </div>
                 </div>
-                <p className="mt-2 font-mono-brand text-2xl font-bold text-foreground">
+                <p className="mt-2 font-mono-brand text-3xl font-bold text-foreground">
                   {card.value}
                 </p>
                 {card.sub && (
                   <p className="mt-0.5 text-xs text-muted-foreground capitalize">
+                    <span
+                      className={`inline-block h-1.5 w-1.5 rounded-full ${palette.dot} mr-1.5`}
+                    />
                     {card.sub}
                   </p>
                 )}

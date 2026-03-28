@@ -29,12 +29,12 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur-md"
+        className="sticky top-0 z-40 bg-background/90 backdrop-blur-md"
       >
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-indigo">
-              <Fish className="h-5 w-5 text-white" />
+            <div className="glow-cyan flex h-8 w-8 items-center justify-center rounded-lg bg-brand-cyan/15 ring-1 ring-brand-cyan/30">
+              <Fish className="h-5 w-5 text-brand-cyan" />
             </div>
             <span className="font-sans-brand text-lg font-bold tracking-tight text-foreground">
               Sentifish
@@ -42,23 +42,24 @@ export default function Dashboard() {
           </div>
           <Link
             to="/"
-            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-brand-cyan"
           >
             <ArrowLeft className="h-4 w-4" />
             Home
           </Link>
         </div>
+        <div className="h-px bg-gradient-to-r from-transparent via-brand-cyan/20 to-transparent" />
       </motion.nav>
 
       {/* Main content */}
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 space-y-8">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-10">
         <DashboardHeader onNewRun={() => setNewRunOpen(true)} />
 
         <Separator />
 
         <StatCards />
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
           <ProviderComparison />
           <TrendChart />
         </div>
