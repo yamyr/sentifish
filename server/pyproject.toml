@@ -1,0 +1,41 @@
+[project]
+name = "sentifish"
+version = "0.1.0"
+description = "Web Search Evaluation Platform"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.28.0",
+    "rich>=13.0.0",
+]
+
+[tool.uv]
+package = true
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.0",
+    "pytest>=9.0.2",
+    "pytest-cov>=6.0.0",
+    "pytest-asyncio>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+fail_under = 50
+show_missing = true

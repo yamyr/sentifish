@@ -1,0 +1,50 @@
+{
+  "name": "sample",
+  "description": "Sample web search evaluation dataset for smoke testing",
+  "cases": [
+    {
+      "query": "Python FastAPI tutorial",
+      "relevant_urls": [
+        "https://fastapi.tiangolo.com/tutorial/",
+        "https://fastapi.tiangolo.com/",
+        "https://realpython.com/fastapi-python-web-apis/"
+      ],
+      "tags": ["programming", "python"]
+    },
+    {
+      "query": "how to make sourdough bread",
+      "relevant_urls": [
+        "https://www.kingarthurbaking.com/recipes/naturally-leavened-sourdough-bread-recipe",
+        "https://www.theclevercarrot.com/2014/01/sourdough-bread-a-beginners-guide/"
+      ],
+      "tags": ["cooking", "baking"]
+    },
+    {
+      "query": "transformer architecture explained",
+      "relevant_urls": [
+        "https://arxiv.org/abs/1706.03762",
+        "https://jalammar.github.io/illustrated-transformer/",
+        "https://en.wikipedia.org/wiki/Transformer_(deep_learning_architecture)"
+      ],
+      "tags": ["machine-learning", "nlp"]
+    },
+    {
+      "query": "best practices REST API design",
+      "relevant_urls": [
+        "https://restfulapi.net/",
+        "https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design",
+        "https://swagger.io/resources/articles/best-practices-in-api-design/"
+      ],
+      "tags": ["api", "design"]
+    },
+    {
+      "query": "climate change effects on coral reefs",
+      "relevant_urls": [
+        "https://www.noaa.gov/education/resource-collections/marine-life/coral-reef-ecosystems",
+        "https://www.epa.gov/coral-reefs/basic-information-about-coral-reefs",
+        "https://en.wikipedia.org/wiki/Environmental_issues_with_coral_reefs"
+      ],
+      "tags": ["science", "environment"]
+    }
+  ]
+}

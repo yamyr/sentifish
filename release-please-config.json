@@ -1,0 +1,12 @@
+{
+  "packages": {
+    "server": {
+      "release-type": "python",
+      "package-name": "sentifish",
+      "bump-minor-pre-major": true,
+      "extra-files": [
+        "app/main.py"
+      ]
+    }
+  }
+}

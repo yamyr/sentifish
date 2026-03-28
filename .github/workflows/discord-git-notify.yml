@@ -1,0 +1,145 @@
+name: Discord Git Notifications
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+
+jobs:
+  notify-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Discord payload (PR)
+        env:
+          EVENT_ACTION: ${{ github.event.action }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          REPO: ${{ github.repository }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          python3 - <<'PY' > payload.json
+          import json
+          import os
+
+          action = os.environ.get("EVENT_ACTION", "updated")
+          pr_number = os.environ.get("PR_NUMBER", "?")
+          title = os.environ.get("PR_TITLE", "(no title)")
+          pr_url = os.environ.get("PR_URL", "")
+          author = os.environ.get("PR_AUTHOR", "unknown")
+          repo = os.environ.get("REPO", "unknown/repo")
+          base_ref = os.environ.get("BASE_REF", "main")
+          head_ref = os.environ.get("HEAD_REF", "unknown")
+          is_draft = os.environ.get("PR_DRAFT", "false") == "true"
+          is_merged = os.environ.get("PR_MERGED", "false") == "true"
+
+          if action == "opened":
+              status = "opened"
+          elif action == "reopened":
+              status = "reopened"
+          elif action == "synchronize":
+              status = "updated"
+          elif action == "ready_for_review":
+              status = "ready for review"
+          elif action == "closed" and is_merged:
+              status = "merged"
+          elif action == "closed":
+              status = "closed"
+          else:
+              status = action
+
+          draft_prefix = "[DRAFT] " if is_draft and action != "closed" else ""
+          content = (
+              f"**{repo}** PR #{pr_number} {status}\n"
+              f"{draft_prefix}**{title}**\n"
+              f"by `{author}` ({head_ref} -> {base_ref})\n"
+              f"{pr_url}"
+          )
+
+          payload = {
+              "content": content,
+              "allowed_mentions": {"parse": []},
+          }
+          print(json.dumps(payload))
+          PY
+
+      - name: Send PR notification to Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL_PR || secrets.DISCORD_WEBHOOK_URL }}
+        if: env.WEBHOOK_URL != ''
+        run: |
+          for i in 1 2 3; do
+            HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              --data @payload.json) && break
+            if [ "$HTTP_CODE" = "429" ]; then
+              echo "Rate limited (429), retry $i/3 after ${i}s..."
+              sleep "$i"
+            else
+              echo "HTTP $HTTP_CODE — failing"
+              exit 1
+            fi
+          done
+
+  notify-main-push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Discord payload (main push)
+        env:
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          REF_NAME: ${{ github.ref_name }}
+          COMPARE_URL: ${{ github.event.compare }}
+          COMMIT_COUNT: ${{ github.event.size }}
+          HEAD_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          python3 - <<'PY' > payload.json
+          import json
+          import os
+
+          repo = os.environ.get("REPO", "unknown/repo")
+          actor = os.environ.get("ACTOR", "unknown")
+          ref_name = os.environ.get("REF_NAME", "main")
+          compare_url = os.environ.get("COMPARE_URL", "")
+          head_message = (os.environ.get("HEAD_MESSAGE", "") or "").splitlines()[0][:180]
+          count = int(os.environ.get("COMMIT_COUNT", "0") or "0")
+
+          content = (
+              f"**{repo}** push to `{ref_name}` by `{actor}`\n"
+              f"{count} commit(s)\n"
+              f"Latest: {head_message}\n"
+              f"{compare_url}"
+          )
+
+          payload = {
+              "content": content,
+              "allowed_mentions": {"parse": []},
+          }
+          print(json.dumps(payload))
+          PY
+
+      - name: Send main push notification to Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL_MAIN || secrets.DISCORD_WEBHOOK_URL }}
+        if: env.WEBHOOK_URL != ''
+        run: |
+          for i in 1 2 3; do
+            HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              --data @payload.json) && break
+            if [ "$HTTP_CODE" = "429" ]; then
+              echo "Rate limited (429), retry $i/3 after ${i}s..."
+              sleep "$i"
+            else
+              echo "HTTP $HTTP_CODE — failing"
+              exit 1
+            fi
+          done
