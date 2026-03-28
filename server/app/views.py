@@ -73,9 +73,7 @@ def delete_dataset(name: str):
 @router.get("/runs")
 def list_runs():
     runs = runner.list_runs()
-    return {
-        "runs": [r.model_dump() for r in runs]
-    }
+    return {"runs": [r.model_dump() for r in runs]}
 
 
 @router.get("/runs/{run_id}")

@@ -13,3 +13,4 @@ htmlcov/
 *.log
 results/
 node_modules/
+portal/

@@ -34,7 +34,7 @@ export default function TrendChart() {
 
   const { chartData, providerKeys, isLive } = useMemo(() => {
     const completedRuns = (runs ?? [])
-      .filter((r) => r.status === "completed" && r.scores.length > 0)
+      .filter((r) => r.status === "completed" && (r.scores?.length ?? 0) > 0)
       .sort((a, b) => a.created_at - b.created_at);
 
     if (completedRuns.length < 2) {

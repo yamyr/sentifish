@@ -45,7 +45,7 @@ export default function ProviderComparison() {
 
   const { metrics, isLive } = useMemo(() => {
     const completedRuns = (runs ?? [])
-      .filter((r) => r.status === "completed" && r.scores.length > 0)
+      .filter((r) => r.status === "completed" && (r.scores?.length ?? 0) > 0)
       .sort((a, b) => b.created_at - a.created_at);
 
     if (completedRuns.length === 0) {
