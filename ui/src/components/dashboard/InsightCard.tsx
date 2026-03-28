@@ -22,28 +22,17 @@ export default function InsightCard() {
     // Aggregate across all completed runs
     const agg: Record<
       string,
-      {
-        ndcg: number[];
-        latency: number[];
-        recall: number[];
-        precision: number[];
-      }
+      { ndcg: number[]; map: number[]; recall: number[] }
     > = {};
 
     for (const run of completedRuns) {
       for (const score of run.scores) {
         if (!agg[score.provider]) {
-          agg[score.provider] = {
-            ndcg: [],
-            latency: [],
-            recall: [],
-            precision: [],
-          };
+          agg[score.provider] = { ndcg: [], map: [], recall: [] };
         }
         agg[score.provider].ndcg.push(score.ndcg_at_k);
-        agg[score.provider].latency.push(score.latency_ms);
+        agg[score.provider].map.push(score.map_at_k ?? 0);
         agg[score.provider].recall.push(score.recall_at_k);
-        agg[score.provider].precision.push(score.precision_at_k);
       }
     }
 
@@ -52,23 +41,23 @@ export default function InsightCard() {
 
     let bestNdcgProvider = "";
     let bestNdcg = -1;
-    let fastestProvider = "";
-    let fastestLatency = Infinity;
+    let bestMapProvider = "";
+    let bestMap = -1;
     let bestRecallProvider = "";
     let bestRecall = -1;
 
     for (const [provider, data] of Object.entries(agg)) {
       const avgNdcg = mean(data.ndcg);
-      const avgLatency = mean(data.latency);
+      const avgMap = mean(data.map);
       const avgRecall = mean(data.recall);
 
       if (avgNdcg > bestNdcg) {
         bestNdcg = avgNdcg;
         bestNdcgProvider = provider;
       }
-      if (avgLatency < fastestLatency) {
-        fastestLatency = avgLatency;
-        fastestProvider = provider;
+      if (avgMap > bestMap) {
+        bestMap = avgMap;
+        bestMapProvider = provider;
       }
       if (avgRecall > bestRecall) {
         bestRecall = avgRecall;
@@ -83,19 +72,19 @@ export default function InsightCard() {
       `${cap(bestNdcgProvider)} achieves the highest NDCG@K at ${bestNdcg.toFixed(3)}`
     );
 
-    if (fastestProvider !== bestNdcgProvider) {
+    if (bestMapProvider !== bestNdcgProvider) {
       parts.push(
-        `while ${cap(fastestProvider)} leads on speed at ${Math.round(fastestLatency)}ms avg latency`
+        `while ${cap(bestMapProvider)} leads on MAP@K at ${bestMap.toFixed(3)}`
       );
     } else {
       parts.push(
-        `with an average latency of ${Math.round(fastestLatency)}ms`
+        `and also leads on MAP@K at ${bestMap.toFixed(3)}`
       );
     }
 
     if (
       bestRecallProvider !== bestNdcgProvider &&
-      bestRecallProvider !== fastestProvider
+      bestRecallProvider !== bestMapProvider
     ) {
       parts.push(
         `${cap(bestRecallProvider)} shows the strongest recall at ${bestRecall.toFixed(3)}`

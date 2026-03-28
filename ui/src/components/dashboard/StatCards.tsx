@@ -37,19 +37,13 @@ export default function StatCards() {
       }
     }
 
-    // Fastest avg latency per provider across all runs
-    const latencyByProvider: Record<string, number[]> = {};
+    // Best MAP@K
+    let bestMap = 0;
+    let bestMapProvider = "\u2014";
     for (const score of allScores) {
-      if (!latencyByProvider[score.provider]) latencyByProvider[score.provider] = [];
-      latencyByProvider[score.provider].push(score.latency_ms);
-    }
-    let fastestLatency = Infinity;
-    let fastestProvider = "\u2014";
-    for (const [provider, latencies] of Object.entries(latencyByProvider)) {
-      const avg = latencies.reduce((a, b) => a + b, 0) / latencies.length;
-      if (avg < fastestLatency) {
-        fastestLatency = avg;
-        fastestProvider = provider;
+      if ((score.map_at_k ?? 0) > bestMap) {
+        bestMap = score.map_at_k;
+        bestMapProvider = score.provider;
       }
     }
 
@@ -57,8 +51,8 @@ export default function StatCards() {
       totalQueries,
       bestNdcg: totalQueries > 0 ? bestNdcg.toFixed(3) : "\u2014",
       bestNdcgProvider: totalQueries > 0 ? bestNdcgProvider : "\u2014",
-      fastestLatency: fastestLatency < Infinity ? `${Math.round(fastestLatency)}ms` : "\u2014",
-      fastestProvider: fastestLatency < Infinity ? fastestProvider : "\u2014",
+      bestMap: totalQueries > 0 ? bestMap.toFixed(3) : "\u2014",
+      bestMapProvider: totalQueries > 0 ? bestMapProvider : "\u2014",
       totalRuns: runs?.length ?? 0,
     };
   }, [runs]);
@@ -79,9 +73,9 @@ export default function StatCards() {
       color: "text-success",
     },
     {
-      label: "Fastest Avg Latency",
-      value: stats.fastestLatency,
-      sub: stats.fastestProvider !== "\u2014" ? stats.fastestProvider : null,
+      label: "Best MAP@K",
+      value: stats.bestMap,
+      sub: stats.bestMapProvider !== "\u2014" ? stats.bestMapProvider : null,
       icon: Zap,
       color: "text-warning",
     },
