@@ -21,7 +21,7 @@ _UUID_PATTERN = re.compile(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a
 def _validate_run_id(run_id: str) -> str:
     """Ensure run_id is a valid UUID to prevent path traversal."""
     if not _UUID_PATTERN.match(run_id):
-        raise ValueError(f"Invalid run_id format")
+        raise ValueError("Invalid run_id format")
     return run_id
 
 
@@ -124,7 +124,6 @@ def generate_narration(run: EvalRun) -> str:
 
     # Comparative insight
     best_ndcg_prov = max(summary, key=lambda p: summary[p].get("mean_ndcg_at_k", 0.0))
-    best_map_prov = max(summary, key=lambda p: summary[p].get("mean_map_at_k", 0.0))
     best_depth_prov = max(summary, key=lambda p: summary[p].get("mean_content_depth", 0.0))
 
     best_ndcg = summary[best_ndcg_prov]["mean_ndcg_at_k"]

@@ -21,7 +21,7 @@ _SAFE_NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\- ]{0,98}[a-zA-Z0-9]$")
 def _validate_name(name: str) -> str:
     """Ensure dataset name is safe for filesystem use."""
     if not _SAFE_NAME.match(name):
-        raise ValueError(f"Invalid dataset name: must be alphanumeric with hyphens/underscores, 2-100 chars")
+        raise ValueError("Invalid dataset name: must be alphanumeric with hyphens/underscores, 2-100 chars")
     return name
 
 _DATASETS_DIR = Path(__file__).resolve().parent.parent / "datasets"
