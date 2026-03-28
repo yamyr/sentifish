@@ -17,16 +17,18 @@ import { TrendingUp } from "lucide-react";
 const PROVIDER_STROKE: Record<string, string> = {
   brave: "hsl(243 75% 55%)",
   serper: "hsl(192 85% 48%)",
+  serpapi: "hsl(172 50% 40%)",
   tavily: "hsl(38 92% 50%)",
+  exa: "hsl(0 60% 55%)",
   tinyfish: "hsl(152 60% 42%)",
 };
 
 const MOCK_TREND = [
-  { run: "Run 1", brave: 0.78, serper: 0.74, tavily: 0.82, tinyfish: 0.8 },
-  { run: "Run 2", brave: 0.81, serper: 0.77, tavily: 0.85, tinyfish: 0.83 },
-  { run: "Run 3", brave: 0.83, serper: 0.79, tavily: 0.87, tinyfish: 0.86 },
-  { run: "Run 4", brave: 0.84, serper: 0.8, tavily: 0.89, tinyfish: 0.88 },
-  { run: "Run 5", brave: 0.82, serper: 0.81, tavily: 0.88, tinyfish: 0.87 },
+  { run: "Run 1", brave: 0.78, serper: 0.74, serpapi: 0.76, tavily: 0.82, exa: 0.80, tinyfish: 0.80 },
+  { run: "Run 2", brave: 0.81, serper: 0.77, serpapi: 0.79, tavily: 0.85, exa: 0.83, tinyfish: 0.83 },
+  { run: "Run 3", brave: 0.83, serper: 0.79, serpapi: 0.81, tavily: 0.87, exa: 0.85, tinyfish: 0.86 },
+  { run: "Run 4", brave: 0.84, serper: 0.80, serpapi: 0.82, tavily: 0.89, exa: 0.86, tinyfish: 0.88 },
+  { run: "Run 5", brave: 0.82, serper: 0.81, serpapi: 0.83, tavily: 0.88, exa: 0.85, tinyfish: 0.87 },
 ];
 
 export default function TrendChart() {
@@ -40,7 +42,7 @@ export default function TrendChart() {
     if (completedRuns.length < 2) {
       return {
         chartData: MOCK_TREND,
-        providerKeys: ["brave", "serper", "tavily", "tinyfish"],
+        providerKeys: ["brave", "serper", "serpapi", "tavily", "exa", "tinyfish"],
         isLive: false,
       };
     }
