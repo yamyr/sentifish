@@ -1,476 +1,402 @@
 # Tool Use Patterns in Agentic Coding Frameworks
 
-> Research compiled March 2026. Sources: Anthropic "Building Effective Agents", Weaviate blog, Medium agentic patterns, seangoedecke.com learnings.
+> Deep research note on how coding agents call tools, the schemas involved, parallel execution, chaining, retry logic, and how different frameworks implement it under the hood.
 
 ---
 
-## Overview
+## 1. What Is Tool Use in Agent Context?
 
-Tool use is the mechanism by which LLM agents interact with the external world — executing code, modifying files, browsing the web, and taking actions that persist beyond the model's context window. The design of tools (what they do, how they're defined, how feedback is returned) profoundly affects agent performance.
+Tool use (also called function calling) is the mechanism by which a large language model delegates side-effecting operations to external code. The model never executes anything itself — it **emits a structured request**, your code (or the provider's infrastructure) runs the operation, and the result flows back into the conversation.
 
-This document explores:
-- The core tool categories used in agentic coding frameworks
-- How tools are defined and invoked
-- Design patterns for effective tool use
-- Approval flows and safety guardrails
-- Advanced patterns like computer use and browser automation
+From the Anthropic documentation:
 
----
+> "Tool use is a contract between your application and the model. You specify what operations are available and what shape their inputs and outputs take; Claude decides when and how to call them."
 
-## The Augmented LLM Model
-
-Anthropic's "Building Effective Agents" defines the foundational architecture:
-
-```
-┌────────────────────────────────────────────────────┐
-│                  Augmented LLM                     │
-│                                                    │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐ │
-│  │ Retrieval│  │  Tools   │  │     Memory       │ │
-│  │ (RAG,    │  │ (bash,   │  │ (context window, │ │
-│  │  search) │  │  files,  │  │  external DB,    │ │
-│  └──────────┘  │  browser)│  │  summaries)      │ │
-│                └──────────┘  └──────────────────┘ │
-└────────────────────────────────────────────────────┘
-                        ↕
-              External Environment
-           (filesystem, APIs, terminal)
-```
-
-The augmented LLM:
-- **Generates tool calls**: decides when and how to use tools
-- **Processes tool results**: incorporates output into context
-- **Maintains memory**: decides what to remember across turns
-- **Performs retrieval**: fetches relevant context on demand
+This contract makes the model behave less like a text generator and more like a function caller. Engineers can integrate tool use the same way they'd integrate any typed interface: define the schema, handle the callback, return a result. The caller on the other side is an LLM choosing which function to invoke based on conversation context.
 
 ---
 
-## Core Tool Categories
+## 2. The Tool Schema: Anatomy of a Function Definition
 
-### 1. Shell / Bash Execution
+Every tool has three mandatory fields:
 
-The most fundamental coding tool. An agent that can run bash commands can do almost anything.
+| Field | Type | Purpose |
+|-------|------|---------|
+| `name` | string | Regex `^[a-zA-Z0-9_-]{1,64}$`. Must be unique in the tool array. |
+| `description` | string | Detailed natural-language description of what the tool does, when to call it, caveats. |
+| `input_schema` | JSON Schema object | Defines expected parameters with types, enums, required fields. |
 
-**Typical interface**:
-```json
-{
-  "name": "bash",
-  "description": "Run a bash command and return stdout/stderr",
-  "parameters": {
-    "command": "string — the command to execute",
-    "timeout": "integer — max seconds (optional)"
-  }
-}
-```
+Optional fields: `input_examples`, `cache_control`, `strict`, `defer_loading`, `allowed_callers`.
 
-**What agents use bash for**:
-- Installing dependencies: `pip install requests`
-- Running tests: `pytest tests/ -v`
-- Building projects: `npm run build`
-- Git operations: `git diff HEAD~1`, `git add -A && git commit -m "fix"`
-- Environment setup: `export DATABASE_URL=...`
-- Code linting: `ruff check src/`, `eslint src/`
-- File operations: `mkdir -p src/utils`, `cp .env.example .env`
-
-**Design considerations**:
-- **Persistent vs one-shot**: Persistent shells maintain state (environment variables, working directory) across calls; one-shot shells don't
-- **Timeout limits**: Long-running commands (test suites, builds) need generous timeouts
-- **Output truncation**: Large outputs need smart truncation; full outputs may overflow context
-- **Error handling**: Distinguish between exit code 0 (success) and non-zero (failure)
-
-**Risk level**: High — bash execution can have irreversible consequences (file deletion, network calls, etc.)
-
-### 2. File System Tools
-
-File tools provide more structured, safer file operations than raw bash.
-
-**Common file tools**:
-
-```json
-// Read file
-{
-  "name": "read_file",
-  "params": {
-    "path": "string",
-    "start_line": "integer (optional)",
-    "end_line": "integer (optional)"
-  }
-}
-
-// Write file
-{
-  "name": "write_file",
-  "params": {
-    "path": "string",
-    "content": "string"
-  }
-}
-
-// Edit file (patch/replace)
-{
-  "name": "edit_file",
-  "params": {
-    "path": "string",
-    "old_string": "string — exact text to find",
-    "new_string": "string — replacement text"
-  }
-}
-
-// Search
-{
-  "name": "search_files",
-  "params": {
-    "pattern": "string (regex or literal)",
-    "directory": "string (optional)",
-    "file_pattern": "string (glob, optional)"
-  }
-}
-```
-
-**Design patterns**:
-
-1. **Search/Replace editing** (Claude Code, Aider): Specify exact text to find and replace. Safer than full-file rewrites. Fails gracefully if text not found (prevents silent corruption).
-
-2. **Line-range editing** (SWE-agent): Specify start/end line numbers. Requires viewing the file first to know line numbers. Good for surgical edits.
-
-3. **Whole-file rewrite**: Write the entire file from scratch. Simple but wasteful and error-prone for large files.
-
-4. **Unified diff format** (Agentless, Aider): Generate a standard `diff -u` formatted patch. Apply with `patch` command. Familiar format; reviewable by humans.
-
-**Read tools best practice**: Windowed file reading (show 50-100 lines at a time with scroll) avoids context overflow on large files. Custom file viewers (SWE-agent) include line numbers, which are critical for subsequent edit operations.
-
-### 3. Code Search / Navigation Tools
-
-Agents need to find relevant code before editing it.
+### Example — Good Tool Definition
 
 ```json
 {
-  "name": "grep",
-  "params": {
-    "pattern": "string",
-    "path": "string",
-    "case_insensitive": "boolean"
-  }
-}
-
-{
-  "name": "find_file",
-  "params": {
-    "name": "string",
-    "directory": "string (optional)"
-  }
-}
-
-{
-  "name": "list_directory",
-  "params": {
-    "path": "string",
-    "recursive": "boolean"
+  "name": "get_stock_price",
+  "description": "Retrieves the current stock price for a given ticker symbol. The ticker symbol must be a valid symbol for a publicly traded company on a major US stock exchange like NYSE or NASDAQ. The tool will return the latest trade price in USD. It should be used when the user asks about the current or most recent price of a specific stock. It will not provide any other information about the stock or company.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "ticker": {
+        "type": "string",
+        "description": "The stock ticker symbol, e.g. AAPL for Apple Inc."
+      }
+    },
+    "required": ["ticker"]
   }
 }
 ```
 
-**Repository map (Aider)**: Instead of exposing raw search tools, Aider pre-computes a hierarchical map of the entire repository using Tree-sitter. This map includes:
-- File paths and sizes
-- Class names and method signatures
-- Import relationships
-- Call graphs
-
-The repo-map is included in every prompt, giving the model a "table of contents" without sending all file contents.
-
-**Semantic search**: Tools that use embeddings to find semantically similar code. Cursor uses this for its "codebase understanding" feature.
-
-### 4. Browser / Web Tools
-
-Browser tools allow agents to:
-- Look up documentation
-- Research solutions to errors
-- Test web applications they build
-- Access real-time information
-
-**Approaches**:
-
-1. **Full browser automation** (Devin, Cline):
-   - Agent controls a real browser (Chromium via Playwright/Puppeteer)
-   - Can navigate, click, type, screenshot
-   - Sees page content as structured HTML or screenshot
-   - High capability, high complexity
-
-2. **Web search API** (many frameworks):
-   - Tool that queries a search API (Brave, Google, Perplexity)
-   - Returns structured results (title, URL, snippet)
-   - Agent can then fetch specific pages
-   - Lower capability than full browser, more reliable
-
-3. **HTTP fetch** (minimal):
-   - Agent calls a URL and receives text/HTML content
-   - Simpler than full browser but sufficient for documentation
-
-**Devin's browser approach**: Uses a full embedded Chromium browser visible in the UI. The agent navigates autonomously, with screenshots periodically captured for context. Can interact with web applications it builds.
-
-**Cline's browser**: Puppeteer-based browser automation. Every browser action requires user approval in the standard human-in-loop flow.
-
-### 5. Code Execution / Testing Tools
-
-Beyond bash, specialized code execution tools provide safer sandboxed execution:
+### Example — Poor Tool Definition (anti-pattern)
 
 ```json
 {
-  "name": "run_python",
-  "params": {
-    "code": "string",
-    "timeout": "integer"
-  }
-}
-
-{
-  "name": "run_tests",
-  "params": {
-    "test_file": "string (optional)",
-    "test_function": "string (optional)"
-  }
+  "name": "get_stock_price",
+  "description": "Gets the stock price for a ticker.",
+  "input_schema": { "type": "object", "properties": { "ticker": { "type": "string" } }, "required": ["ticker"] }
 }
 ```
 
-**Test-driven loop pattern** (common in all frameworks):
-1. Run existing tests → see which fail
-2. Write/modify code to fix failures
-3. Re-run tests → check progress
-4. Repeat until all tests pass
+The good description explains what the tool does, when to use it, what data it returns, and what the parameter means. The poor version leaves the model guessing.
 
-This loop is the core of automated software engineering. Tools that make it efficient (fast test execution, good output formatting) directly improve agent performance.
+### Key Best Practices (from Anthropic Engineering)
 
-### 6. Computer Use (Anthropic)
-
-Anthropic's "Computer Use" API allows Claude to control a computer via screenshot-action-screenshot loops:
-
-```json
-{
-  "name": "computer",
-  "type": "computer_20241022",
-  "display_width_px": 1920,
-  "display_height_px": 1080
-}
-```
-
-**Available actions**:
-- `screenshot`: Capture current screen
-- `key`: Press keyboard shortcut
-- `type`: Type text
-- `mouse_move`: Move cursor
-- `left_click` / `right_click` / `double_click`: Mouse actions
-- `left_click_drag`: Drag operation
-- `scroll`: Scroll at position
-
-**Use cases in coding**:
-- Interacting with GUIs that lack APIs
-- Testing desktop applications
-- Navigating browser-based tools
-- Accessing IDEs visually
-
-**Limitations**:
-- Slow (screenshot → LLM → action loop is expensive)
-- Screenshot analysis introduces errors
-- Not suitable as primary coding tool
-- Best for tasks where no API/CLI alternative exists
+- **Detailed descriptions are the single most important factor** in tool performance — aim for 3-4+ sentences per tool.
+- **Consolidate related operations** into fewer tools: instead of `create_pr`, `review_pr`, `merge_pr`, use one tool with an `action` parameter.
+- **Namespace tool names** when tools span multiple services: `github_list_prs`, `slack_send_message`.
+- **Return only high-signal information** — semantic IDs, not opaque internal refs; only the fields Claude needs for its next step.
+- If a human engineer can't definitively say which tool to call in a given situation, an AI agent won't either.
 
 ---
 
-## Tool Design Principles
+## 3. The Agentic Loop: How Tool Calling Works
 
-### From Anthropic's "Building Effective Agents"
-
-1. **Give the LLM enough context to use tools correctly**: Tool descriptions must be precise and include examples
-2. **Format outputs for LLM consumption**: Structured JSON > raw text; truncate intelligently
-3. **Fail explicitly**: Return clear error messages; don't silently succeed with wrong results
-4. **Keep tool interfaces small**: Many focused tools beat few multi-purpose tools
-5. **Start simple, add complexity only when needed**: A model with just bash + file read/write can solve most coding tasks
-
-### From SWE-agent's ACI Research
-
-1. **Error prevention > error recovery**: Add linters, validators, schema checks that prevent bad actions before they're taken
-2. **Custom viewers > raw commands**: A custom file viewer with line numbers is more useful than `cat`
-3. **Reduce action space thoughtfully**: Too many tools causes decision paralysis; too few limits capability
-4. **Feedback must be machine-readable**: JSON output > human-readable prose for subsequent reasoning
-
-### From seangoedecke.com (Practitioner Learnings)
-
-1. **Persistent shell sessions win**: Stateful shells are much more effective than one-shot execution
-2. **Leave mistakes in context**: For capable models, keeping errors in history actually helps (don't truncate failed tool calls)
-3. **Models that understand git work better**: git-aware tools and workflows improve agent reliability
-4. **Patch format is undertrained**: Models learn to use whatever file editing format is in their training data
-
----
-
-## Approval Flow Patterns
-
-### Pattern 1: Always Approve (Fully Autonomous)
-
-Used by: Devin, Claude Code (default), SWE-agent
+### Client Tool Flow (User-Defined + Anthropic-Schema Tools)
 
 ```
-User → Task → Agent executes → Done
-                ↕ no human
-         (all tools auto-approved)
+while stop_reason == "tool_use":
+    1. Send request with tools[] array + messages
+    2. Claude responds: stop_reason="tool_use", content=[tool_use blocks]
+    3. Execute each tool_use block
+    4. Format outputs as tool_result blocks
+    5. Append assistant response + tool_results to messages
+    6. Send new API request
 ```
 
-**Appropriate when**:
-- Task is in a sandboxed environment
-- Agent has been trusted with full autonomy
-- Speed matters more than oversight
-- Errors are easily reversible (git-tracked changes)
+The loop exits on: `end_turn`, `max_tokens`, `stop_sequence`, or `refusal`.
 
-### Pattern 2: Human-in-the-Loop (Cline default)
+### Server Tool Flow (web_search, code_execution, web_fetch)
 
-Used by: Cline, Cursor (approval for destructive ops)
+Anthropic runs these tools server-side. One request from your application may trigger several tool calls internally before a response arrives. You see `server_tool_use` blocks showing what ran, but execution is already complete. If the server hits its iteration limit, `stop_reason` is `pause_turn` — re-send the conversation to continue.
 
-```
-Agent → Propose action → Human approves/rejects → Execute
-                         ↕
-              (every file/terminal action requires OK)
-```
-
-**Approval UI shows**:
-- What file will be changed
-- Exact diff of proposed change
-- What command will be run
-- Expected outcome
-
-**Appropriate when**:
-- Working on production code
-- User wants oversight
-- Building trust with a new agent
-- Actions are potentially irreversible
-
-### Pattern 3: Risk-Based Approval
-
-Used by: Claude Code (with permission settings), emerging pattern
-
-```
-Agent → Classify action risk → 
-  Low risk (read files, search) → Auto-approve
-  Medium risk (write files, run safe commands) → Auto with logging
-  High risk (delete, network, secrets) → Human approval required
-```
-
-**Risk classification criteria**:
-- Reversible vs irreversible (git-tracked changes are reversible)
-- Scope (current file vs entire codebase)
-- External effects (local vs network calls)
-- Data sensitivity (plain code vs credentials/env vars)
-
-### Pattern 4: Trust Delegation
-
-Used by: Claude Code Teams, multi-agent patterns
-
-```
-Orchestrator (trusted) → Sub-agent (trusted by orchestrator)
-                         → Sub-agent has same permissions as orchestrator
-```
-
-In Claude Code Teams, the orchestrator agent spawns sub-agents and delegates tasks. Sub-agents inherit a permission scope set by the orchestrator.
-
----
-
-## Tool Use Loop Patterns
-
-### ReAct Pattern (Reason + Act)
-
-Used by SWE-agent, most agent frameworks:
-
-```
-1. REASON: "I need to find where the bug occurs. Let me search for the error message."
-2. ACT: search_files("AttributeError: 'NoneType'")
-3. OBSERVE: "Found in src/parser.py:142"
-4. REASON: "Let me read that file to understand context."
-5. ACT: read_file("src/parser.py", start_line=130, end_line=160)
-6. OBSERVE: [file content]
-7. REASON: "The issue is that obj can be None. I should add a null check."
-8. ACT: edit_file(...)
-9. OBSERVE: "Edit applied successfully"
-10. ACT: run_tests()
-11. OBSERVE: "All tests pass"
-12. SUBMIT patch
-```
-
-**Key property**: Each action is informed by previous observations. The "reason" step is what makes the loop adaptive.
-
-### Plan-then-Execute Pattern
-
-Used by Devin, Cursor Agent, Claude Code with `--plan` mode:
-
-```
-1. PLAN: Decompose task into steps
-2. REVIEW: Human reviews and approves plan (optional)
-3. EXECUTE: Run each step in order
-4. VERIFY: Check outcomes
-5. LOOP: If step fails, debug and retry
-```
-
-**Advantage**: Reduces mid-task surprises; easier to audit
-
-### Prompt Chaining (Agentless-style)
-
-```
-Step 1: Localization LLM call → suspicious files
-Step 2: Repair LLM call → candidate patches
-Step 3: Validation → select best patch
-```
-
-No tool use loop; each step is a structured LLM call with fixed inputs/outputs. More predictable but less adaptive.
-
----
-
-## Advanced Tool Patterns
-
-### Tool Composition
-
-Complex capabilities emerge from combining simple tools:
+### Code Skeleton (Python)
 
 ```python
-# "Find all TODO comments and create GitHub issues"
-files = search_files("TODO:")
-for file, line in files:
-    content = read_file(file)
-    issue_text = extract_todo(content, line)
-    github_create_issue(title=issue_text, body=f"Found in {file}:{line}")
+import anthropic
+
+client = anthropic.Anthropic()
+messages = [{"role": "user", "content": "What files are in /tmp?"}]
+tools = [{"type": "bash_20250124", "name": "bash"}]
+
+while True:
+    response = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=4096,
+        tools=tools,
+        messages=messages
+    )
+    
+    messages.append({"role": "assistant", "content": response.content})
+    
+    if response.stop_reason != "tool_use":
+        break
+    
+    tool_results = []
+    for block in response.content:
+        if block.type == "tool_use":
+            result = execute_tool(block.name, block.input)
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": result
+            })
+    
+    messages.append({"role": "user", "content": tool_results})
 ```
 
-### Tool Retry with Backoff
+---
 
-When tools fail, smart retry patterns prevent infinite loops:
+## 4. Tool Categories in Practice
+
+### 4.1 Anthropic Built-In (Schema-Provided, Client-Executed)
+
+These tools have a trained-in schema — the model has been optimized on thousands of successful trajectories using these exact signatures, so it calls them more reliably:
+
+| Tool | Version String | What It Does |
+|------|----------------|--------------|
+| `bash` | `bash_20250124` | Persistent bash session, stateful, env vars survive |
+| `text_editor` | `text_editor_20250124` | view/create/str_replace/insert operations on files |
+| `computer` | `computer_20250124` | Mouse/keyboard/screenshot for GUI automation |
+| `memory` | `memory_20250818` | Client-side memory file directory (CRUD on `/memories`) |
+
+The bash tool key features:
+- Maintains a **persistent session** between calls (env vars, working directory carry over)
+- Supports `restart: true` to reset the session
+- Underlying is a `BashSession` class that pipes to `/bin/bash`, collects stdout+stderr
+
+### 4.2 Server-Executed Tools (Anthropic-Managed)
+
+| Tool | What It Does |
+|------|--------------|
+| `web_search_20260209` | Real-time web search |
+| `web_fetch` | Fetches URL content |
+| `code_execution_20250825` | Code sandbox (bash + file ops) |
+| `tool_search` | Tool discovery within large tool libraries |
+
+### 4.3 User-Defined Tools
+
+Any custom function you want the model to be able to call. The vast majority of production tool-use traffic falls here.
+
+---
+
+## 5. Parallel Tool Use
+
+Claude can issue **multiple tool calls in a single response** — this is the default behavior.
+
+```json
+// Claude response with parallel tool calls
+{
+  "content": [
+    {"type": "tool_use", "id": "toolu_01", "name": "read_file", "input": {"path": "main.py"}},
+    {"type": "tool_use", "id": "toolu_02", "name": "read_file", "input": {"path": "tests/test_main.py"}},
+    {"type": "tool_use", "id": "toolu_03", "name": "bash", "input": {"command": "git log --oneline -5"}}
+  ],
+  "stop_reason": "tool_use"
+}
+```
+
+Your application should execute all three in parallel (using `asyncio.gather`, `Promise.all`, etc.) then return all results in a single `user` message:
 
 ```python
-def run_with_retry(tool, args, max_retries=3):
+tool_results = await asyncio.gather(*[execute_tool(b) for b in tool_use_blocks])
+```
+
+To **disable** parallel tool use (force sequential):
+
+```python
+# Anthropic SDK
+response = client.messages.create(
+    ...,
+    tool_choice={"disable_parallel_tool_use": True}
+)
+
+# LangChain / LangChain-Anthropic
+model_with_tools = model.bind_tools(tools, parallel_tool_calls=False)
+```
+
+Note: Claude Sonnet 3.7 was observed to be less likely to make parallel calls even without the flag set.
+
+---
+
+## 6. Tool Chaining
+
+Tool chaining is when the output of one tool becomes the input to another — the model reasons over intermediate results to decide next steps. This is implicit in the agentic loop: every `tool_result` is added to the conversation, and the model reasons over all of it.
+
+### Chain Example: Bug Fix Workflow
+
+```
+Turn 1: Claude calls bash("grep -r 'NullPointerException' src/")
+Turn 2: Claude reads the specific file with text_editor(view, path)
+Turn 3: Claude applies the fix with text_editor(str_replace, old, new)
+Turn 4: Claude runs tests with bash("pytest tests/ -v")
+Turn 5: Claude sees failure, reads error, applies another fix
+Turn 6: Tests pass. Claude calls bash("git commit -am 'fix NPE in handler'")
+```
+
+Each step is informed by the previous output. This is the standard SWE pattern.
+
+---
+
+## 7. Tool Use in Different Agent Implementations
+
+### 7.1 Claude Code (Anthropic)
+
+Claude Code operates in three layers:
+
+```
+┌─ Extension Layer ─── MCP | Hooks | Skills | Plugins ─────────────┐
+├─ Delegation Layer ─── Subagents (up to 10 parallel) ──────────────┤
+└─ Core Layer ──────── Read | Edit | Bash | Glob | Grep | etc ──────┘
+```
+
+The core tools are `Read`, `Edit` (str_replace based), `Bash`, `Glob`, `Grep`, `WebFetch`. Claude Code uses different sub-models for different roles:
+- **Haiku**: fast read-only exploration — glob, grep, read, safe bash commands
+- **Opus/Sonnet**: implementation — write, edit, bash with mutations
+
+Context overflow prevention: exploration results from subagents don't bloat the main context — only conclusions/summaries return.
+
+The hook system guarantees shell execution independent of model behavior (deterministic automation layer).
+
+### 7.2 SWE-agent (Princeton/Stanford)
+
+SWE-agent introduced the **Agent-Computer Interface (ACI)** concept — the idea that the shape of the tool interface matters as much as the model.
+
+Key ACI design insights:
+- **Action space simplification**: Replacing raw shell commands with specialized types (e.g., `edit` or `find_file`) reduces agent confusion and computational burden (e.g., not needing to do arithmetic on line ranges)
+- **Informative error messages**: When tools fail, the error message is designed to guide the agent toward correct usage
+- **History processing**: The harness keeps agent context concise by processing history before each turn
+
+Original SWE-agent tool set:
+```
+open <file> [<line>]     # Opens file, optionally at line
+goto <line>              # Jumps to line in currently open file
+scroll_down / scroll_up  # Navigate file by window
+edit <start>:<end>       # Edit line range with heredoc syntax
+search_dir <query>       # Search directory
+search_file <query>      # Search current file
+find_file <name>         # Find file by name in repo
+```
+
+### 7.3 mini-SWE-agent (Princeton/Stanford, 2025)
+
+In 2025, the SWE-agent team released a simpler version that challenges the need for custom tool interfaces:
+
+> "Does not have any tools other than bash — it doesn't even need to use the tool-calling interface of the LMs. Instead of implementing custom tools for every specific thing the agent might want to do, the focus is fully on the LM utilizing the shell to its full potential."
+
+Architecture: ~100 lines of Python. No fancy dependencies. Every action is `subprocess.run()` — completely independent (no stateful shell session). Scores >74% on SWE-bench verified.
+
+Key insight: **As LMs become more capable, custom tool scaffolding matters less.** The model can figure out `sed`, `grep`, `patch`, `git` without custom wrappers.
+
+### 7.4 Aider
+
+Aider uses a **whole-diff editing model** rather than targeted tool calls:
+- No `text_editor` or `bash` tool in the traditional sense
+- The model outputs a full diff/patch in a custom format
+- Aider applies the patch, runs tests, and feeds results back
+- Multiple backends: udiff, whole-file, search/replace blocks
+
+This approach is optimized for multi-file, cross-cutting refactors where targeted edits would miss connections.
+
+### 7.5 Devin (Cognition AI)
+
+Devin operates in a full VM environment with:
+- Browser (web navigation, authentication)
+- Terminal (bash, build tools)
+- File editor
+- GitHub integration (PR creation, review response)
+
+Tool invocations are made through an internal planner that maintains a task graph. Unlike Claude Code's flat tool list, Devin has persistent state across the entire session — more like an OS process than an API loop.
+
+---
+
+## 8. Error Handling and Retry Logic
+
+### Common Error Patterns
+
+| Error Type | Agent Behavior | Recommended Pattern |
+|-----------|---------------|---------------------|
+| Command not found | Retry with correct binary path | Include error in next turn |
+| Permission denied | Try sudo / check permissions | Escalate to ask user |
+| Syntax error in edit | Re-read file, apply corrected edit | Include file content in error context |
+| Test failure | Read failure output, identify root cause, fix | Feed full test output |
+| Timeout | Retry with simpler command | Break complex command into steps |
+| Rate limit (429) | Exponential backoff | Wait + retry with jitter |
+
+### Retry Implementation Pattern
+
+```python
+import time
+import random
+
+def execute_with_retry(tool_fn, max_retries=3, base_delay=1.0):
     for attempt in range(max_retries):
-        result = tool(**args)
-        if result.success:
-            return result
-        # Analyze failure, modify approach
-        args = adapt_args(result.error, args, attempt)
-    return None  # or escalate to human
+        try:
+            return tool_fn()
+        except RateLimitError:
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)
+            time.sleep(delay)
+        except ToolExecutionError as e:
+            if attempt == max_retries - 1:
+                raise
+            # Return error as tool_result so model can adapt
+            return {"error": str(e), "attempt": attempt + 1}
+    raise MaxRetriesExceeded()
 ```
 
-### Tool Output Summarization
+### Agent-Level Self-Correction
 
-For tools that return large outputs (test suites, grep results), a summarization step keeps context manageable:
+When a tool call produces an error, the model receives the error in `tool_result` content. Well-designed harnesses:
+1. Include the full error output (not just exit code)
+2. Include relevant context (current file state, recent commands)
+3. Allow the model to change strategy — try a different approach
 
+The model's ability to self-correct from tool errors is one key reason `text_editor` outperforms raw bash for file editing: the schema-trained model knows exactly how to recover.
+
+---
+
+## 9. Tool Design Anti-Patterns
+
+### Bloated Tool Sets
+
+> "One of the most common failure modes we see is bloated tool sets that cover too much functionality or lead to ambiguous decision points about which tool to use." — Anthropic Engineering
+
+If you have 50 tools and the model can't decide between `create_document` and `write_file`, consolidate.
+
+### Opaque Return Values
+
+Tools that return internal IDs, raw SQL rows, or unparsed HTML force the model to do extra work. Return semantic, stable identifiers and only the fields needed for the next decision.
+
+### Stateless Tools That Should Be Stateful
+
+If the agent needs to `open_connection`, then `execute_query`, then `close_connection` — consider wrapping in a single tool that manages the lifecycle internally.
+
+### Missing Error Structure
+
+Tools that throw exceptions with no detail make agent debugging impossible. Always return structured error info:
+
+```python
+{
+    "success": false,
+    "error_type": "timeout" | "blocked" | "not_found" | "permission_denied",
+    "error_message": "Human-readable explanation",
+    "partial_results": [...]  # Any data captured before failure
+}
 ```
-bash("pytest . -v") → 500 lines of output
-→ LLM summarize: "3 tests failing: test_auth, test_parser, test_db"
-→ Agent works with summary, not full output
+
+---
+
+## 10. Strict Tool Use
+
+Adding `strict: true` to a tool definition enforces that Claude's tool calls always match the schema exactly:
+
+```json
+{
+  "name": "create_ticket",
+  "description": "...",
+  "input_schema": { ... },
+  "strict": true
+}
 ```
+
+Useful in production pipelines where downstream code parses tool call arguments without validation.
+
+---
+
+## 11. Tool Use with Prompt Caching
+
+For agents using large tool libraries, tool definitions themselves consume substantial tokens on every request. Prompt caching (`cache_control: {"type": "ephemeral"}`) avoids re-tokenizing unchanged tool schemas across turns, significantly reducing cost and latency in long agentic loops.
 
 ---
 
 ## Sources
 
-1. Anthropic — "Building Effective Agents": https://www.anthropic.com/research/building-effective-agents
-2. Weaviate — "What Are Agentic Workflows?": https://weaviate.io/blog/what-are-agentic-workflows
-3. seangoedecke.com — "What have we learned about building agentic AI tools?": https://www.seangoedecke.com/ideas-in-agentic-ai-tooling/
-4. Medium — "Multi-Agent System Patterns": https://medium.com/@mjgmario/multi-agent-system-patterns-a-unified-guide-to-designing-agentic-architectures-04bb31ab9c41
-5. Medium — "Agentic Workflows with Claude": https://medium.com/@reliabledataengineering/agentic-workflows-with-claude-architecture-patterns-design-principles-production-patterns-72bbe4f7e85a
-6. SWE-agent ACI documentation: https://github.com/SWE-agent/SWE-agent/blob/main/docs/background/aci.md
-7. SWE-agent Tools docs: https://swe-agent.com/latest/config/tools/
-8. Anthropic — Claude Code overview: https://www.anthropic.com/engineering/claude-code-best-practices
-9. Anthropic Computer Use API documentation
+- Anthropic: How tool use works — https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works
+- Anthropic: Define tools — https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools
+- Anthropic: Bash tool — https://platform.claude.com/docs/en/agents-and-tools/tool-use/bash-tool
+- Anthropic Engineering: Writing tools for agents — https://www.anthropic.com/engineering/writing-tools-for-agents
+- SWE-agent paper (arXiv:2405.15793) — https://arxiv.org/abs/2405.15793
+- mini-SWE-agent GitHub — https://github.com/SWE-agent/mini-swe-agent
+- Microsoft AI Agents for Beginners: Tool Use Design Pattern — https://microsoft.github.io/ai-agents-for-beginners/04-tool-use/
+- MIT Missing Semester: Agentic Coding — https://missing.csail.mit.edu/2026/agentic-coding/
+- Introl: Claude Code CLI Reference — https://introl.com/blog/claude-code-cli-comprehensive-guide-2025
+- arXiv: AI Agentic Programming Survey (2508.11126) — https://arxiv.org/html/2508.11126v1

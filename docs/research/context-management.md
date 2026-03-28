@@ -1,438 +1,423 @@
-# Context Window Management in Long-Running Coding Agents
+# Context Window Management in Long-Running Agents
 
-> Research compiled: March 2026  
-> Topics: Compaction strategies, summarization, RAG for codebase, chunking, how Claude Code and Aider handle large repos
-
----
-
-## Overview
-
-Context window management is one of the most critical and underappreciated engineering challenges in long-running coding agents. As an agent works through a complex codebase — reading files, executing commands, fixing bugs, and iterating — the context window fills up rapidly. Without active management, agents either:
-
-1. Hit the context limit and crash/truncate
-2. Spend enormous token budgets on stale context
-3. Lose important information needed to complete the task
-
-The fundamental tension is: **everything in context is immediately accessible but expensive; everything outside must be retrieved but is free**. Different systems solve this tradeoff differently.
+> Comprehensive research note on how coding agents manage limited context windows across long tasks — sliding window, summarization, RAG-based memory, chunking, token budgeting, and how different harnesses handle context overflow.
 
 ---
 
-## The Context Window Problem in Coding Agents
+## 1. The Context Problem
 
-### Why Context Fills Up Quickly
+Every LLM has a fixed **context window** — the maximum number of tokens for combined input + output. As agents execute long tasks, they accumulate:
+- System prompt (instructions, tool schemas)
+- Tool definitions (100–500 tokens each, paid per request)
+- Conversation history (every message, every tool call, every result)
+- File contents loaded for analysis
+- Test output, compilation logs, etc.
 
-A typical coding agent session on a medium-sized repository might include:
+Eventually, the context fills. What happens then depends on the harness:
+- Hard truncation: oldest messages silently drop
+- Crash/error: agent halts
+- Active management: the harness prunes, summarizes, or delegates
 
-```
-System prompt:            ~2,000 tokens
-CLAUDE.md / project docs: ~3,000 tokens  
-Initial codebase scan:    ~15,000 tokens (reading 50 files × 300 tokens avg)
-Tool call results:        ~20,000 tokens (bash output, test results, grep results)
-Conversation history:     ~10,000 tokens
-Current reasoning:        ~2,000 tokens
-Total:                    ~52,000 tokens
-```
+### Context Rot
 
-For a 200k token window (Claude 3.5 Sonnet), this leaves ~148k tokens. But as the session extends — more files read, more iterations, more test output — this fills quickly.
+From Anthropic's engineering blog on context engineering:
 
-**Issues that arise:**
-- Early context (initial codebase scan) is rarely needed again but occupies space
-- Tool call outputs accumulate (every bash command adds output)
-- Multiple rounds of iteration create long back-and-forth chains
-- Large file reads bloat context even when only a few lines are relevant
+> "As the number of tokens in the context window increases, the model's ability to accurately recall information from that context decreases... Context, therefore, must be treated as a finite resource with diminishing marginal returns."
 
-### The Compaction Tax
+This concept — called **context rot** — emerges from the transformer architecture's n² pairwise attention relationships. As n grows, the model's attention gets stretched thin. Information from 100k tokens ago is retrieved less reliably than information from 5k tokens ago, even within the nominal context window.
 
-When compaction fires:
-1. The model summarizes early context (consuming tokens to do so)
-2. The summary is shorter but loses detail
-3. Future references to compacted information are less precise
-4. Compaction itself can take 10-50k tokens of "work"
+**Key insight**: Bigger context windows don't solve context rot. They just push the cliff further away. The real solution is curating what's in the context.
 
-From a GitHub issue on Claude Code:
-> "During extended agentic coding sessions, context window compaction kicks in frequently and consumes what feels like roughly half of the available tokens. This creates a frustrating loop where: Context fills up with codebase files, tool calls, and conversation history."
+### Context Windows by System (2025)
+
+| System | Context Window | Persistent Memory |
+|--------|---------------|-------------------|
+| Claude Sonnet / Opus 4.x | 200K tokens (1M with premium) | Memory tool (file-based) |
+| GPT-4.1 | 1M tokens | None native |
+| Gemini 1.5 Pro | 2M tokens | None native |
+| GitHub Copilot | 16K (active buffer) | Sliding window |
+| Codeium | 32K | Dynamic token budgeting |
+| Cursor IDE | 128K | Semantic search over project history |
+| SWE-agent | 16K | Vector DB retrieval |
+| Devika | 32K | SQLite + embeddings |
+| Continue.dev | 32K | Embedding-based local recall |
+| OpenDevin | 32K | RAG over command history |
+
+(Source: AI Agentic Programming Survey, arXiv 2508.11126)
 
 ---
 
-## Claude Code's Compaction Approach
+## 2. Strategies Overview
 
-### Automatic Compaction
+Context management strategies exist on a spectrum from "do nothing and crash" to "fully autonomous retrieval-augmented agents":
 
-Claude Code implements automatic compaction via Anthropic's API:
-
-**How it works:**
-1. System monitors remaining context budget
-2. When utilization crosses a threshold (~70-80%), compaction triggers
-3. Earlier conversation turns are summarized by a secondary model call
-4. Summary replaces the original detailed turns
-5. Conversation continues with more context budget available
-
-**What gets summarized:**
-- Early file reads (replaced with "previously read X, key finding: Y")
-- Tool call chains (replaced with outcome summaries)
-- Exploratory commands (bash ls, grep searches)
-
-**What's preserved:**
-- Critical code snippets still actively needed
-- Error messages from recent test runs
-- Current task state and progress
-
-### Manual Compaction (`/compact`)
-
-Users can trigger compaction manually:
 ```
-/compact
+[Do nothing] → [Truncate] → [Sliding Window] → [Summarize] → [RAG/Memory] → [Subagents]
+     ↑                                                                              ↑
+  Simple/fragile                                                          Robust/complex
 ```
 
-This summarizes the conversation so far with instructions to preserve:
-- Current task description
-- Files modified
-- Tests passing/failing
-- Key decisions made
+---
 
-### Server-Side Compaction (Claude API)
+## 3. Sliding Window
 
-Anthropic introduced server-side compaction in the Claude API:
+The simplest active strategy: keep the **N most recent messages** in context, drop the oldest.
+
+### Basic Implementation
 
 ```python
-from anthropic import Anthropic
+MAX_CONTEXT_MESSAGES = 20
+MAX_CONTEXT_TOKENS = 100_000
 
-client = Anthropic()
+def trim_to_window(messages: list, max_messages: int = 20) -> list:
+    """Keep system message + last N messages"""
+    system = [m for m in messages if m["role"] == "system"]
+    non_system = [m for m in messages if m["role"] != "system"]
+    return system + non_system[-max_messages:]
+```
 
-response = client.beta.messages.create(
-    model="claude-opus-4-5",
-    max_tokens=8192,
-    messages=messages,
-    betas=["interleaved-thinking-2025-05-14"],
-    # Server-side compaction happens automatically
+### Token-Based Sliding Window
+
+More precise — count actual tokens:
+
+```python
+import tiktoken
+
+enc = tiktoken.get_encoding("cl100k_base")
+
+def trim_to_token_budget(messages: list, budget: int = 100_000) -> list:
+    system = [m for m in messages if m["role"] == "system"]
+    rest = [m for m in messages if m["role"] != "system"]
+    
+    system_tokens = sum(len(enc.encode(str(m))) for m in system)
+    remaining_budget = budget - system_tokens
+    
+    # Walk backward through messages, including until budget exceeded
+    included = []
+    tokens_used = 0
+    for msg in reversed(rest):
+        msg_tokens = len(enc.encode(str(msg)))
+        if tokens_used + msg_tokens > remaining_budget:
+            break
+        included.insert(0, msg)
+        tokens_used += msg_tokens
+    
+    return system + included
+```
+
+**Drawback**: Sliding window loses important early context — decisions made at the start of a task, design constraints, key discoveries. Pure recency is often a poor proxy for relevance.
+
+### GitHub Copilot Pattern
+
+Copilot uses a simple 16K sliding window over the active edit buffer. The "active buffer" is not the full conversation history — it's the set of recently viewed/edited files. This is context management by scope restriction rather than history management.
+
+---
+
+## 4. Summarization
+
+When important context must be preserved but the raw history is too long, **compress it with another LLM call**.
+
+### Basic Summarization Loop
+
+```python
+SUMMARIZE_THRESHOLD = 0.8  # Summarize when 80% of budget used
+
+async def maybe_summarize(messages: list, token_budget: int) -> list:
+    current_tokens = count_tokens(messages)
+    
+    if current_tokens < token_budget * SUMMARIZE_THRESHOLD:
+        return messages
+    
+    # Summarize oldest messages (keep last 10 intact)
+    to_summarize = messages[1:-10]  # Skip system, keep recent
+    recent = messages[-10:]
+    
+    summary_prompt = f"""Summarize the following agent work session. 
+    Preserve key decisions, findings, file paths modified, and important context.
+    Be concise but complete.
+    
+    {format_messages(to_summarize)}"""
+    
+    summary = await llm.complete(summary_prompt, model="claude-haiku-4-5")
+    
+    summary_message = {
+        "role": "system",
+        "content": f"[SUMMARY OF EARLIER WORK]\n{summary}\n[END SUMMARY]"
+    }
+    
+    return [messages[0], summary_message] + recent
+```
+
+### Progressive Summarization
+
+Rather than one big summary at the end, summarize as you go:
+
+```
+Turn 1-20: Full history
+Turn 21: Summarize turns 1-10, keep 11-21 in full
+Turn 31: Summarize "summary + turns 11-20", keep 21-31 in full
+```
+
+This creates a compressed "long-term memory" as a prefix, with recent full-fidelity turns appended.
+
+### CrewAI: Automatic Context Window Respect
+
+CrewAI agents with `respect_context_window=True` automatically summarize when approaching the limit:
+
+```python
+researcher = Agent(
+    role="Senior Researcher",
+    goal="...",
+    respect_context_window=True,  # Auto-summarize if context fills
+    max_iter=20,
 )
 ```
 
-From Anthropic docs:
-> "Compaction extends the effective context length for long-running conversations and tasks by automatically summarizing older context when approaching the context window limit. It handles context management automatically with minimal integration work."
-
 ---
 
-## Aider's Approach: The Repo Map
+## 5. RAG-Based Context (Retrieval-Augmented Generation)
 
-Aider (the open-source coding assistant) takes a fundamentally different approach: rather than managing what goes into context during a session, it uses a **persistent structural map** of the codebase to efficiently navigate.
+Instead of keeping everything in context, store it externally and **retrieve only what's relevant** for each turn.
 
-### The Repo Map Architecture
+### Architecture
 
-**Phase 1: AST Parsing with Tree-Sitter**
+```
+                    ┌──────────────────────┐
+                    │   Vector Database     │
+                    │  (tool outputs,       │
+                    │   past decisions,     │
+                    │   file contents,      │
+                    │   test results)       │
+                    └──────────┬───────────┘
+                               │ semantic search
+                    ┌──────────▼───────────┐
+                    │   Context Builder    │
+                    │   (top-K retrieval)  │
+                    └──────────┬───────────┘
+                               │ inject into context
+                    ┌──────────▼───────────┐
+                    │       LLM            │
+                    │  (compact context)   │
+                    └──────────────────────┘
+```
 
-Aider uses tree-sitter to parse every file in the repository and extract:
-- Class definitions
-- Function signatures and return types
-- Import/export relationships
-- Call relationships between functions
-
-Tree-sitter supports 50+ languages and provides accurate AST parsing without requiring language servers.
-
-**Phase 2: PageRank-Based Relevance Ranking**
-
-The repo map uses a PageRank-style algorithm to rank code elements by importance:
-- Elements that are imported/referenced frequently rank higher
-- Entry points (main functions, API handlers) rank high
-- Dead code ranks low
-- Elements referenced in the current task rank highest
+### Embedding + Retrieval Pattern
 
 ```python
-# Simplified repo map generation
-def build_repo_map(repo_path, task_description):
-    # Parse all files
-    all_symbols = parse_with_treesitter(repo_path)
-    
-    # Build reference graph
-    graph = build_reference_graph(all_symbols)
-    
-    # Apply PageRank
-    ranks = networkx.pagerank(graph)
-    
-    # Filter to fit context budget
-    top_symbols = select_top_by_rank(ranks, budget=4000)
-    
-    return format_as_compact_map(top_symbols)
+from sentence_transformers import SentenceTransformer
+import numpy as np
+import chromadb
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+client = chromadb.Client()
+collection = client.create_collection("agent_memory")
+
+def store_tool_result(tool_name: str, input: dict, output: str, turn: int):
+    text = f"Tool: {tool_name}\nInput: {input}\nOutput: {output[:2000]}"
+    embedding = model.encode(text).tolist()
+    collection.add(
+        embeddings=[embedding],
+        documents=[text],
+        metadatas=[{"turn": turn, "tool": tool_name}],
+        ids=[f"turn_{turn}_{tool_name}"]
+    )
+
+def retrieve_relevant_context(query: str, k: int = 5) -> str:
+    query_embedding = model.encode(query).tolist()
+    results = collection.query(query_embeddings=[query_embedding], n_results=k)
+    return "\n\n".join(results["documents"][0])
 ```
 
-**Phase 3: Compact Map Output**
+### SWE-agent RAG
 
-The output is a compact representation:
-```
-# Repo Map (top 50 symbols by relevance)
+SWE-agent uses a vector DB to retrieve relevant tool outputs and plan state. Before each step, the harness retrieves the top-K most relevant past actions/observations based on the current task description. This keeps the effective context small while preserving access to important history.
 
-src/auth/models.py:
-  class User(BaseModel):
-    id: int
-    email: str
-    created_at: datetime
-    def verify_password(self, password: str) -> bool
+### Self-RAG Pattern
 
-src/auth/handlers.py:
-  def login_handler(request: Request) -> Response  # calls User.verify_password
-  def signup_handler(request: Request) -> Response  # creates User
+Self-RAG (arXiv:2310.11511) adapts retrieval to be on-demand: the model generates special "reflection tokens" indicating whether retrieval is needed. Instead of always retrieving context, the model decides when external information would help.
 
-src/api/routes.py:
-  router = APIRouter()
-  # registers: /auth/login, /auth/signup
-```
-
-This compact map (4,000-8,000 tokens) gives the model a structural understanding of the entire codebase without reading every file in full.
-
-### Dynamic Map Updates
-
-As Aider makes changes:
-1. Modified files are immediately re-parsed
-2. New symbols are added to the map
-3. Deleted symbols are removed
-4. Map stays current with code state
-
-### Context Budget Management
-
-Aider dynamically allocates context budget:
-- Repo map: 4,000-8,000 tokens (constant)
-- Active files (explicitly added): unbounded
-- Recent conversation: last N turns
-- Tool output: truncated if too long
-
-Users can explicitly add files to context:
-```
-/add src/auth/models.py
-/add src/api/routes.py
-```
+Relevant to coding agents: rather than stuffing all file contents into context, let the model call `read_file` only when it needs to inspect something.
 
 ---
 
-## RAG for Codebase Navigation
+## 6. Subagent Delegation (Context Isolation)
 
-Retrieval-Augmented Generation (RAG) for codebases extends beyond simple keyword search to semantic, structure-aware retrieval.
+The most powerful context management technique: **spawn a subagent with a clean context** to handle a bounded piece of work, then return only the summary.
 
-### Code-Specific Embedding Challenges
-
-Text embeddings aren't optimal for code:
-- Variable names are arbitrary (x, temp, val)
-- Structure matters more than vocabulary
-- AST structure encodes semantics
-- Docstrings and comments are different signal than implementation
-
-**Solutions:**
-- Code-specific embedding models (CodeBERT, UniXCoder, StarCoder embeddings)
-- Chunk by function/class boundaries, not by token count
-- Include function signature + docstring in each chunk's metadata
-
-### Chunking Strategies
-
-**Naive chunking (poor):**
-```
-Split every 512 tokens
-→ Breaks functions mid-way
-→ Loses context about what class/module a function belongs to
-→ Poor retrieval quality
-```
-
-**Syntax-aware chunking (better):**
-```
-Split at function/class boundaries
-→ Each chunk = one complete unit of code
-→ Preserve imports and class context
-→ Much better semantic coherence
-```
-
-**Hierarchical chunking (best for large repos):**
-```
-Level 1: Repository overview (file list + module descriptions)
-Level 2: File summaries (extracted from docstrings + structure)
-Level 3: Class/function chunks (individual code units)
-→ Query at Level 1 to find relevant files
-→ Retrieve Level 3 chunks from those files
-→ Include Level 2 summaries for missing context
-```
-
-### Embedding Databases for Code
-
-| Database | Best For | Key Feature |
-|----------|----------|-------------|
-| Chroma | Local development | Embedded, zero-config |
-| Qdrant | Production scale | High performance, filtering |
-| Weaviate | Enterprise | Multi-modal, GraphQL API |
-| pgvector | Postgres shops | No new infrastructure |
-| LanceDB | Edge deployment | Embedded, columnar storage |
-
-### Hybrid Search (BM25 + Vector)
-
-Combining keyword search with semantic search improves code retrieval:
-- BM25 (keyword): Good for exact function names, variable names, error messages
-- Vector search: Good for semantic similarity ("find functions that validate user input")
-- Hybrid: Use both, re-rank results
-
----
-
-## Subagent-Based Context Management
-
-A powerful pattern for managing context is to use **subagents** for context-heavy exploration:
+From Claude Code's architecture:
 
 ```
-Main Agent (lean context)
-  ├── Task: Fix bug in auth module
-  ├── Spawns: Exploration Subagent
-  │     ├── Context: Full codebase scan
-  │     ├── Returns: Summary of auth flow
-  │     └── Terminates (releases context)
-  ├── Receives summary (compact, 500 tokens)
-  ├── Applies fix
-  └── Spawns: Test Subagent
-        ├── Runs test suite
-        ├── Returns: Pass/fail summary
-        └── Terminates
+Main conversation (200K budget):
+  ┌─────────────────────────────────────────────┐
+  │ System prompt + tools + compressed history  │  ~50K tokens
+  │ Current task context                         │  ~10K tokens
+  │ Subagent summaries (returned results)        │  ~5K tokens
+  └─────────────────────────────────────────────┘
+
+Subagent 1 (clean 200K budget):
+  ┌─────────────────────────────────────────────┐
+  │ Task: "Explore the authentication module"    │
+  │ [reads files, runs searches, etc.]           │
+  │ Returns: 2K summary of findings              │
+  └─────────────────────────────────────────────┘
 ```
 
-From Claude Code's best practices:
-> "Since context is your fundamental constraint, subagents are one of the most powerful tools available. When Claude researches a codebase it reads lots of files, all of which consume your context. Subagents run in separate context windows and report back summaries."
+The exploration results don't bloat the main conversation — only conclusions return. This is the fundamental insight of Claude Code's three-layer architecture.
 
-This pattern keeps the main agent's context lean while allowing unlimited exploration via subagents.
-
----
-
-## Sliding Window Approaches
-
-For long agent sessions, a sliding window maintains only recent context:
+### LangGraph Subgraph Pattern
 
 ```python
-class SlidingWindowConversation:
-    def __init__(self, max_tokens=100000, preserve_system=True):
-        self.messages = []
-        self.max_tokens = max_tokens
-        self.system = None
+# Define a subgraph for a bounded task
+sub_builder = StateGraph(SubState)
+sub_builder.add_node("explore", explore_codebase)
+sub_builder.add_node("analyze", analyze_findings)
+sub_graph = sub_builder.compile()
+
+# Main graph calls subgraph as a node
+def delegate_exploration(state: MainState) -> MainState:
+    sub_result = sub_graph.invoke({
+        "task": state["current_subtask"],
+        "repository": state["repo_path"]
+    })
+    # Only the summary returns to main state
+    state["exploration_summary"] = sub_result["summary"]
+    return state
+```
+
+---
+
+## 7. Token Budgeting
+
+Proactive token management — allocate a budget before starting, track spending, adjust behavior when approaching the limit.
+
+### Budget Allocation Pattern
+
+```python
+class TokenBudget:
+    def __init__(self, total: int = 180_000):
+        self.total = total
+        self.system_reserve = 10_000     # System prompt + tools
+        self.history_budget = 80_000    # Conversation history
+        self.working_budget = 60_000    # Files, tool outputs
+        self.output_reserve = 8_000     # Model output
+        self.safety_margin = 22_000     # Buffer
     
-    def add_message(self, message):
-        self.messages.append(message)
-        while self._count_tokens() > self.max_tokens:
-            # Summarize and remove oldest messages
-            summary = self._summarize_oldest_messages(n=5)
-            self.messages = self.messages[5:]
-            self.messages.insert(0, {
-                "role": "system",
-                "content": f"[Context summary: {summary}]"
+    @property
+    def remaining_history(self) -> int:
+        return self.history_budget - self.history_used
+    
+    def should_summarize(self) -> bool:
+        return self.remaining_history < 20_000
+    
+    def should_delegate(self) -> bool:
+        return self.remaining_history < 5_000
+```
+
+### Codeium's Dynamic Token Budgeting
+
+Codeium prioritizes tokens based on file proximity and edit history:
+- Files currently open: high priority
+- Recently edited files: medium priority  
+- Files referenced in open files: medium priority
+- Everything else: low priority / excluded
+
+This creates a dynamic context that reflects the current coding task without requiring explicit memory management.
+
+---
+
+## 8. Chunking Strategies
+
+When processing large files or repositories, chunk them for tractable handling.
+
+### Semantic Chunking (Code-Aware)
+
+```python
+import ast
+
+def chunk_python_file(source: str) -> list[dict]:
+    """Split Python file into semantic chunks at function/class boundaries"""
+    tree = ast.parse(source)
+    chunks = []
+    
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            start = node.lineno
+            end = node.end_lineno
+            chunk_source = "\n".join(source.split("\n")[start-1:end])
+            chunks.append({
+                "type": "function" if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) else "class",
+                "name": node.name,
+                "lines": (start, end),
+                "source": chunk_source,
+                "tokens": estimate_tokens(chunk_source)
             })
+    
+    return chunks
 ```
 
-**Variants:**
-1. **Hard truncation**: Drop oldest messages (simple but lossy)
-2. **Summarization**: Summarize then drop (better retention, costs tokens)
-3. **Importance-weighted**: Keep important messages regardless of age
-4. **Selective compression**: Compress tool outputs but keep model reasoning
+### Repository-Level Chunking
+
+For large codebases:
+1. **Directory-level summary**: `ls -R`, file count, major subsystems
+2. **File-level metadata**: name, size, last modified, key exports (via `ctags` or AST)
+3. **Function-level detail**: on-demand, retrieved when the agent specifically needs to read a function
 
 ---
 
-## File Reading Strategies
+## 9. Context Engineering Principles (Anthropic)
 
-### Full File Reads (Expensive)
+From Anthropic's "Effective Context Engineering" post:
 
-Reading entire files into context:
-```python
-content = open('src/models.py').read()  # Might be 500-2000 tokens
-```
+### 1. Minimal High-Signal Tokens
+> "Find the smallest possible set of high-signal tokens that maximize the likelihood of some desired outcome."
 
-**When appropriate:**
-- File is small and entirely relevant
-- Agent needs to understand complete context
-- Making structural changes to the file
+Every token in context has a cost — it consumes the model's limited attention budget. Add context intentionally, not by default.
 
-### Line-Range Reads (Efficient)
+### 2. System Prompt Altitude
+The system prompt should be at the right altitude:
+- **Too specific**: Brittle if-else logic that breaks on edge cases
+- **Too vague**: Model has no concrete guidance
+- **Just right**: Clear behavioral heuristics that generalize well
 
-Read only relevant sections:
-```python
-# Read lines 100-200 of a large file
-content = read_file_lines('src/models.py', start=100, end=200)
-```
+Use XML/Markdown headers to organize: `<background_information>`, `<instructions>`, `## Tool guidance`, `## Output description`.
 
-Claude Code implements this with its `View` tool which accepts line ranges.
+### 3. Minimal Viable Tool Set
+Bloated tool sets waste context (each tool definition = tokens) and create ambiguity. Ask: what's the minimal set of tools that enables this task?
 
-### Symbol-Level Reads
-
-Extract only specific functions/classes:
-```python
-# Using tree-sitter to extract just the User class
-user_class = extract_symbol('src/models.py', 'class User')
-```
-
-### Semantic Search Within Files
-
-For very large files (>1000 lines), use grep/search before reading:
-```bash
-grep -n "def validate_" src/auth/models.py
-# Returns: line numbers of relevant functions
-# Then read only those sections
-```
-
----
-
-## Prompt Caching for Context Efficiency
-
-Anthropic, OpenAI, and others support **prompt caching** — when the same prefix is reused across calls, cached tokens are cheaper:
+### 4. Just-in-Time Context
+Tools allow agents to pull in new context as they work. Don't preload — let the agent fetch what it needs when it needs it:
 
 ```python
-# Anthropic prompt caching example
-messages = [
-    {
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": codebase_content,  # Large, stable content
-                "cache_control": {"type": "ephemeral"}  # Cache this!
-            },
-            {
-                "type": "text", 
-                "text": task_description  # Variable, don't cache
-            }
-        ]
-    }
+# Bad: preload everything
+context = load_all_project_files()  # 50K tokens
+
+# Good: let agent pull on demand
+tools = [
+    {"name": "read_file", "description": "Read a file by path"},
+    {"name": "search_code", "description": "Search codebase with a query"},
 ]
 ```
 
-**Savings:** Cached tokens cost ~10% of full tokens.
-**Strategy:** Put stable content (codebase, instructions) at the start of context, variable content (task, conversation) at the end.
-
 ---
 
-## Model-Specific Context Limits
+## 10. Context Strategies by Agent Type
 
-| Model | Context Window | Practical Working Context |
-|-------|---------------|--------------------------|
-| Claude 3.5 Sonnet | 200k tokens | ~150k (reserve for output) |
-| Claude Opus 4.5 | 200k tokens | ~150k |
-| GPT-4o | 128k tokens | ~100k |
-| GPT-4 Turbo | 128k tokens | ~100k |
-| Gemini 1.5 Pro | 1M tokens | ~800k |
-| Gemini 1.5 Flash | 1M tokens | ~800k |
-
-**Note on Gemini's 1M context:** While theoretically capable, performance degrades significantly at 500k+ tokens for complex reasoning tasks. "Lost in the middle" phenomenon: models attend poorly to content in the middle of very long contexts.
-
----
-
-## Best Practices for Long-Running Agent Context
-
-1. **Start lean**: Don't pre-load the entire codebase. Explore on demand.
-2. **Use repo maps**: A compact structural overview is more valuable than full file reads.
-3. **Prune tool output**: Truncate verbose bash output (e.g., first/last 50 lines of test output).
-4. **Subagent exploration**: Use separate agents for codebase research, return compact summaries.
-5. **Cache stable prefixes**: Use prompt caching for project docs, coding standards, etc.
-6. **Incremental reading**: Read files in sections rather than all at once.
-7. **Semantic retrieval**: Use embeddings to find relevant files rather than reading all.
-8. **Checkpoint summaries**: At key milestones, summarize progress explicitly before continuing.
-9. **Avoid re-reading**: Track what's been read; only re-read if file was modified.
-10. **Budget-aware tool calls**: Track approximate token usage; be conservative as budget depletes.
+| Agent Type | Primary Strategy | Secondary |
+|-----------|-----------------|-----------|
+| Short coding task (<1h) | Sliding window | Minimal pruning |
+| Long refactor (>1 day) | Subagent delegation | Progressive summarization |
+| Code review | RAG (retrieve relevant context) | Structured summaries |
+| Multi-file feature | Token budgeting + chunking | Subagents per module |
+| Test debugging loop | Full history (test failures are compact) | Truncate passing tests |
+| Research + synthesis | RAG | External memory (files) |
 
 ---
 
 ## Sources
 
-- Claude Code best practices: https://code.claude.com/docs/en/best-practices
-- Claude Code compaction blog: https://stevekinney.com/courses/ai-development/claude-code-compaction
-- Compaction issue tracking: https://github.com/anthropics/claude-code/issues/28984
-- Anthropic Compaction API: https://platform.claude.com/docs/en/build-with-claude/compaction
-- Anthropic Context Windows: https://platform.claude.com/docs/en/build-with-claude/context-windows
-- Aider repo map: https://aider.chat/docs/repomap.html
-- Aider tree-sitter blog: https://aider.chat/2023/10/22/repomap.html
-- Aider Reddit discussion: https://www.reddit.com/r/ChatGPTCoding/comments/1iwediw/aiders_repomap_for_large_codebases_lsp/
+- Anthropic Engineering: Effective Context Engineering — https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+- Anthropic: Memory tool — https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool
+- arXiv: AI Agentic Programming Survey (2508.11126) — https://arxiv.org/html/2508.11126v1 (context window table)
+- arXiv: Self-RAG (2310.11511) — https://arxiv.org/abs/2310.11511
+- Introl: Claude Code CLI Reference — https://introl.com/blog/claude-code-cli-comprehensive-guide-2025
+- CrewAI Agents docs — https://docs.crewai.com/concepts/agents

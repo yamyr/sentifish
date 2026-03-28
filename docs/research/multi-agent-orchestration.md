@@ -1,587 +1,436 @@
 # Multi-Agent Orchestration Patterns
 
-> Research compiled March 2026. Sources: DEV.to orchestration patterns guide, OpenAI Swarm GitHub, AutoGen Microsoft Research, CrewAI docs, LangGraph docs, aihola.com, Anthropic building effective agents.
+> Comprehensive research note covering swarm intelligence, hierarchical orchestrator+worker patterns, CrewAI, AutoGen, LangGraph, parallel vs sequential execution, shared state, and inter-agent communication protocols.
 
 ---
 
-## Overview
+## 1. Why Multi-Agent?
 
-Multi-agent orchestration is the discipline of coordinating multiple AI agents to collaboratively solve problems that exceed the capability, context window, or specialization of any single agent. As LLMs become cheaper and more capable, architectures involving 5–50+ cooperating agents have become practical for production use cases.
+Single-agent systems are bounded by the context window, constrained to one reasoning thread, and limited to the capabilities of a single role. Multi-agent architectures overcome these limits:
 
-The core engineering question is: **how do agents coordinate?** The coordination model determines:
-- Latency (sequential vs parallel execution)
-- Fault tolerance (single point of failure vs distributed resilience)
-- Observability (centralized trace vs distributed log reconstruction)
-- Scalability (linear scaling vs bottlenecks)
-- Debugging complexity (single flow vs emergent behavior)
+- **Parallelism**: Multiple agents can work simultaneously on independent subtasks
+- **Specialization**: Each agent can be optimized (different model, system prompt, tools) for a specific role
+- **Context isolation**: Each agent has a focused context window rather than one bloated shared window
+- **Fault isolation**: One failing agent doesn't crash the whole pipeline
+- **Modularity**: Agents can be swapped, upgraded, or tested independently
 
----
+Research (AutoGen, MetaGPT, ChatDev papers) has consistently shown multi-agent systems outperforming single-agent systems on complex tasks like software development.
 
-## The Five Core Orchestration Patterns
-
-Every multi-agent system in production maps to one (or a hybrid) of five fundamental patterns.
-
-### 1. Orchestrator-Worker (Hub-and-Spoke)
-
-The most widely deployed pattern. A central orchestrator receives a task, decomposes it into subtasks, dispatches each to a specialized worker, and aggregates the results.
-
-```
-              ┌─────────────┐
-              │ Orchestrator│
-              │  (Planner)  │
-              └──────┬──────┘
-        ┌─────────┬──┴──┬─────────┐
-        ▼         ▼     ▼         ▼
-   ┌────────┐ ┌──────┐ ┌──────┐ ┌──────┐
-   │Worker 1│ │Wrkr 2│ │Wrkr 3│ │Wrkr 4│
-   │(Code)  │ │(Test)│ │(Docs)│ │(API) │
-   └────────┘ └──────┘ └──────┘ └──────┘
-        └─────────┴──┬──┴─────────┘
-                     ▼
-              ┌─────────────┐
-              │  Aggregated │
-              │   Result    │
-              └─────────────┘
-```
-
-**Characteristics**:
-- Workers do not communicate with each other — all coordination flows through the orchestrator
-- Orchestrator maintains global state and handles error recovery
-- Workers are stateless or maintain only local state
-- Easy to debug: single control flow to trace
-
-**Implementations**:
-- **LangGraph Supervisor pattern**: Orchestrator node routes to worker nodes
-- **AutoGen GroupChat with selector**: Manager agent selects next speaker
-- **Claude Code Teams**: Orchestrator spawns and coordinates sub-agents
-- **CrewAI Hierarchical Process**: Manager agent oversees task delegation
-
-**Use cases**:
-- Customer support triage (route → resolve → verify)
-- Code generation (plan → implement module A → implement module B → integrate)
-- Document processing (split pages → extract per page → merge)
-- Any workload where subtasks are independent
-
-**Failure modes**:
-- Orchestrator is a single point of failure
-- Context window bottleneck: orchestrator must hold full task + all intermediate results
-- Throughput ceiling: orchestrator LLM latency limits decomposition speed
+From AutoGen's documentation:
+> "Agents can work together in a variety of ways to solve problems. Research works like AutoGen, MetaGPT and ChatDev have shown multi-agent systems out-performing single agent systems at complex tasks like software development."
 
 ---
 
-### 2. Swarm Pattern (Decentralized / Emergent)
+## 2. Core Building Blocks
 
-Agents operate as autonomous peers with no central coordinator. Coordination emerges from shared state and local decision rules — inspired by ant colonies and bird flocking.
+Every multi-agent system is built from these primitives:
 
-```
-  ┌──────┐    handoff     ┌──────┐
-  │Agent1│ ──────────────▶│Agent2│
-  └──────┘                └──────┘
-     ▲                       │
-     │        ┌──────┐       │
-     └────────│Agent3│◀──────┘
-              └──────┘
-               ╔══════════════╗
-               ║ Shared State ║
-               ║  (Blackboard)║
-               ╚══════════════╝
-```
+### 2.1 Autonomous Agents
+Independent entities capable of making decisions, learning, and acting without human intervention. Each agent has:
+- A **role** (what it is)
+- A **goal** (what it's optimizing for)
+- A **backstory/persona** (context for decisions)
+- A **tool set** (what actions it can take)
+- A **memory** (what it knows)
+- An **LLM** (the reasoning engine)
 
-**Key mechanism**: Handoffs. When an agent encounters a task outside its specialization, it transfers control to a more appropriate agent by calling a `transfer_to_XXX` function.
+### 2.2 Environment
+The shared context — data sources, APIs, tools, language models. Agents perceive and interact with the environment to fulfill objectives.
 
-**OpenAI Swarm framework** (Oct 2024):
-- Two primitives: **Agents** and **Handoffs**
-- Stateless architecture (no state retained between runs)
-- Agent instructions → system prompt of active agent
-- On handoff: system prompt changes to the new agent's instructions
-- Lightweight and highly controllable
-- Labeled "educational" by OpenAI (not production-hardened)
+### 2.3 Communication Protocol
+How agents exchange information. Options:
+- **Direct messaging**: point-to-point, synchronous
+- **Blackboard systems**: shared memory all agents can read/write
+- **Event-based signaling**: pub/sub, asynchronous
+- **Tool calling**: agent calls another agent as a tool
 
-```python
-# OpenAI Swarm example
-from swarm import Swarm, Agent
-
-def transfer_to_billing():
-    return billing_agent
-
-def transfer_to_technical():
-    return technical_agent
-
-triage_agent = Agent(
-    name="Triage Agent",
-    instructions="Route customer queries to the appropriate specialist.",
-    functions=[transfer_to_billing, transfer_to_technical]
-)
-
-billing_agent = Agent(
-    name="Billing Agent", 
-    instructions="Handle all billing and payment questions."
-)
-```
-
-**Characteristics**:
-- No single point of failure
-- Naturally parallel (agents work concurrently)
-- Poor observability (must reconstruct trace from distributed logs)
-- Emergent behavior can be unpredictable
-
-**Use cases**:
-- Research workflows (50 agents explore 50 hypotheses in parallel)
-- Competitive intelligence gathering
-- Large-scale web scraping
-- Tasks where optimal path is unknown upfront
+### 2.4 Coordination Mechanism
+Strategies that align agent goals and manage task division:
+- **Centralized orchestrator**: one master agent routes work
+- **Hierarchical**: tree of orchestrators and workers
+- **Peer-to-peer**: agents negotiate directly
+- **Market-based**: agents bid on tasks
 
 ---
 
-### 3. Pipeline Pattern (Sequential Stages)
+## 3. Architecture Patterns
 
-Agents are arranged in a linear sequence where each agent processes the output of the previous one. Analogous to Unix pipes or manufacturing assembly lines.
+### 3.1 Supervisor / Hierarchical Pattern
 
-```
-Input → [Agent A: Parse] → [Agent B: Analyze] → [Agent C: Format] → Output
-```
-
-**Characteristics**:
-- Predictable execution order
-- Each agent specializes in one transformation
-- Easy to debug (linear trace)
-- Low latency only if stages are fast; overall latency = sum of all stages
-- A bottleneck at any stage affects the whole pipeline
-
-**Agentless** is essentially a pipeline (localize → repair → validate) with LLM calls as stages rather than agents.
-
-**Aider Architect/Editor** uses a 2-stage pipeline:
-1. Architect (o1/Claude Opus): reasons about what to change and why
-2. Editor (DeepSeek/o1-mini): translates the plan into actual file edits
-
-**Use cases**:
-- Document processing (extract → transform → load)
-- Code review (analyze → comment → summarize)
-- Content generation (outline → draft → polish → publish)
-
----
-
-### 4. Hierarchical Pattern (Tree Structure)
-
-A tree of agents where higher-level agents manage lower-level ones, creating layers of abstraction. The root receives the original task; leaf agents execute atomic operations.
+The most common production pattern. One orchestrator agent decomposes goals and delegates to specialized workers.
 
 ```
                     ┌─────────────────┐
-                    │ Strategic Agent  │ (L0: Goals & Strategy)
-                    └────────┬────────┘
-              ┌──────────────┴──────────────┐
-    ┌─────────┴──────────┐       ┌──────────┴──────────┐
-    │  Tactical Agent A  │       │  Tactical Agent B   │ (L1: Planning)
-    └──────┬─────────────┘       └──────┬──────────────┘
-     ┌─────┴────┐                ┌──────┴────┐
-   ┌─┴──┐   ┌──┴─┐           ┌──┴──┐   ┌───┴─┐
-   │Op 1│   │Op 2│           │Op 3 │   │Op 4 │  (L2: Execution)
-   └────┘   └────┘           └─────┘   └─────┘
+                    │   Orchestrator   │  (high-capability model, e.g. Opus)
+                    │   "Project Mgr"  │
+                    └───────┬─────────┘
+                            │ delegates tasks
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+       ┌──────────┐  ┌──────────┐  ┌──────────┐
+       │ Researcher│  │  Coder   │  │  Tester  │
+       │  (Haiku) │  │ (Sonnet) │  │  (Haiku) │
+       └──────────┘  └──────────┘  └──────────┘
 ```
 
-**Characteristics**:
-- Clear authority and delegation
-- Scales to large agent teams (10+ agents)
-- Overhead grows with tree depth (each delegation adds latency)
-- Context compression at each level (higher-level agents summarize lower-level results)
+**Key characteristic**: Orchestrator maintains global state and task graph; workers operate in isolated contexts, return summaries.
 
-**Implementations**:
-- **Devin 2.0**: Primary Devin orchestrates sub-Devins for parallel workstreams
-- **AgentOrchestra** (arxiv 2025): Central planning agent + specialized sub-teams
-- **CrewAI Flows**: Hierarchical with manager agent auto-assigned
+**Claude Code implementation**: The main conversation spawns up to 10 subagents. Exploration subagents use Haiku (cheap); implementation uses Sonnet. Only summaries return to the main context.
 
-**Use cases**:
-- Large software projects (CTO → PM → engineers)
-- Enterprise automation (director → department heads → workers)
-- Research programs (PI → research leads → lab members)
+**CrewAI**: Uses `Process.hierarchical` where a manager LLM automatically delegates tasks to the best-suited agent based on role and goal descriptions.
 
----
+### 3.2 Sequential Pipeline
 
-### 5. Mesh Pattern (Peer-to-Peer)
-
-All agents can communicate directly with any other agent. No hierarchy, no central coordinator.
+Tasks flow in a fixed order, each agent's output becoming the next agent's input. Simple, predictable, easy to debug.
 
 ```
-Agent1 ←──→ Agent2
-  ↕    ╲  ╱   ↕
-Agent3 ←──→ Agent4
+[Researcher] ──output──▶ [Analyst] ──output──▶ [Writer] ──output──▶ [Editor]
 ```
 
-**Characteristics**:
-- Maximum flexibility
-- Extremely difficult to debug and observe
-- Risk of circular dependencies and deadlocks
-- Rarely used in pure form; usually constrained by protocols
+**CrewAI**: `Process.sequential` — default mode, each task executed in definition order, previous output available as context.
 
-**Use cases**:
-- Collaborative creative work (agents negotiate and revise)
-- Consensus-seeking (agents vote/debate until agreement)
-- Simulation environments
+**Best for**: well-defined linear workflows where each step clearly depends on the previous (e.g., research → draft → review → publish).
 
----
+### 3.3 Parallel (Swarm) Pattern
 
-## Framework Implementations
-
-### AutoGen (Microsoft)
-
-**Versions**: 0.2 (original) → 0.4 (redesigned)
-
-**AutoGen 0.2 (original)**:
-- Conversation-based: agents exchange natural language messages
-- `AssistantAgent` + `UserProxyAgent` + `GroupChat`
-- Simple round-robin or LLM-selected speaker order
-- Human input mode: `ALWAYS`, `NEVER`, `TERMINATE`
-
-**AutoGen 0.4 (2024 redesign)**:
-- **Actor model** (inspired by Erlang/Akka): agents as actors exchanging typed messages
-- **Asynchronous, event-driven**: agents react to messages without blocking
-- **Three-layer architecture**:
-  1. **Core**: Agent runtime, message routing, actor lifecycle
-  2. **AgentChat**: High-level conversation patterns (GroupChat, RoundRobin, Selector)
-  3. **Extensions**: Tool integrations, model clients, memory
+Multiple independent agents work simultaneously on non-overlapping tasks.
 
 ```python
-# AutoGen 0.4 GroupChat
-from autogen_agentchat.agents import AssistantAgent
-from autogen_agentchat.teams import RoundRobinGroupChat
-from autogen_agentchat.conditions import StopAfterNMessages
+# LangGraph parallel fan-out
+from langgraph.graph import StateGraph, START, END
 
-agent1 = AssistantAgent("Researcher", model_client=...)
-agent2 = AssistantAgent("Writer", model_client=...)
-agent3 = AssistantAgent("Editor", model_client=...)
+builder = StateGraph(State)
+builder.add_node("orchestrator", orchestrate)
+builder.add_node("worker_a", worker_a)
+builder.add_node("worker_b", worker_b)
+builder.add_node("worker_c", worker_c)
+builder.add_node("aggregator", aggregate_results)
 
-team = RoundRobinGroupChat(
-    participants=[agent1, agent2, agent3],
-    termination_condition=StopAfterNMessages(9)  # 3 rounds
+builder.add_edge(START, "orchestrator")
+builder.add_conditional_edges("orchestrator",
+    route_to_workers,
+    {"a": "worker_a", "b": "worker_b", "c": "worker_c"}
 )
-result = await team.run(task="Write an article about MCP.")
+builder.add_edge(["worker_a", "worker_b", "worker_c"], "aggregator")
+builder.add_edge("aggregator", END)
 ```
 
-**Group chat patterns**:
-- `RoundRobinGroupChat`: Agents take turns in fixed order
-- `SelectorGroupChat`: LLM selects next speaker based on context
-- Custom selector: Programmatic next-speaker logic
+**OpenAI Swarm**: Lightweight multi-agent framework where agents can hand off to each other. Each agent has its own instructions and tools; "handoff" transfers the conversation to another agent.
 
-**Key strength**: Research-grade framework with deep Microsoft ecosystem integration (Azure AI, Semantic Kernel).
+**Best for**: tasks that can be parallelized — e.g., researching 10 topics simultaneously, running tests across multiple environments.
+
+### 3.4 Network / Peer-to-Peer
+
+Agents communicate directly with each other without a central orchestrator. Each agent can call any other agent.
+
+```
+Agent A ◄──────► Agent B
+   ▲                 ▲
+   │                 │
+   ▼                 ▼
+Agent C ◄──────► Agent D
+```
+
+**Characteristics**: More flexible, harder to debug. Risk of circular calls or infinite delegation. Requires careful design of routing logic.
+
+### 3.5 Graph-Based (LangGraph)
+
+Workflows represented as directed graphs (potentially cyclic) where nodes are agents/functions and edges define transitions.
+
+```python
+from langgraph.graph import StateGraph
+
+class AgentState(TypedDict):
+    messages: list
+    current_agent: str
+    task_complete: bool
+
+graph = StateGraph(AgentState)
+graph.add_node("planner", plan_step)
+graph.add_node("executor", execute_step)
+graph.add_node("reviewer", review_step)
+
+graph.add_conditional_edges(
+    "reviewer",
+    lambda state: "executor" if not state["task_complete"] else END
+)
+```
+
+LangGraph is fundamentally built around DAGs (with support for cycles for iterative refinement). It provides:
+- **State persistence** between nodes
+- **Human-in-the-loop** checkpoints
+- **Streaming** at every step
+- **Time-travel debugging** (replay from any checkpoint)
 
 ---
 
-### CrewAI
+## 4. Framework Comparison
 
-**Purpose**: Role-based multi-agent orchestration focused on ease of use  
-**Analogy**: A crew of specialists working on a project
+### 4.1 CrewAI
 
-**Core concepts**:
-- **Agent**: Has a role, goal, backstory, and optional tools
-- **Task**: Has a description, expected output, assigned agent
-- **Crew**: Collection of agents + tasks + process type
-- **Process**: How tasks execute (sequential or hierarchical)
+**Model**: Role-based, agents behave like employees with specific responsibilities.
 
 ```python
 from crewai import Agent, Task, Crew, Process
 
 researcher = Agent(
     role="Senior Research Analyst",
-    goal="Uncover cutting-edge developments in AI coding agents",
-    backstory="Expert at finding and synthesizing technical information",
+    goal="Uncover cutting-edge developments in AI",
+    backstory="Expert researcher with attention to detail",
     tools=[search_tool, web_fetch_tool],
-    verbose=True
+    llm="claude-opus-4-6",
+    max_iter=20,
+    allow_delegation=True,
+    respect_context_window=True,  # Auto-summarizes if context fills
 )
 
 writer = Agent(
-    role="Tech Content Writer", 
-    goal="Craft compelling technical documentation",
-    backstory="Expert at translating complex AI topics for developers",
-    verbose=True
+    role="Tech Content Strategist",
+    goal="Craft compelling articles on tech advancements",
+    backstory="Experienced technical writer",
+    llm="claude-sonnet-4-6",
 )
 
 research_task = Task(
-    description="Research the latest SWE-bench results",
-    expected_output="Detailed report with scores and analysis",
-    agent=researcher
-)
-
-write_task = Task(
-    description="Write a summary of the research findings",
-    expected_output="Well-structured markdown document",
-    agent=writer,
-    context=[research_task]  # Uses output from research_task
+    description="Research latest AI agent frameworks",
+    expected_output="Detailed report with key findings",
+    agent=researcher,
 )
 
 crew = Crew(
     agents=[researcher, writer],
-    tasks=[research_task, write_task],
-    process=Process.sequential
+    tasks=[research_task, writing_task],
+    process=Process.sequential,  # or Process.hierarchical
+    memory=True,  # Enables unified memory system
+    verbose=True,
 )
 
 result = crew.kickoff()
 ```
 
-**Execution processes**:
-- **Sequential**: Tasks execute in order; each output feeds the next
-- **Hierarchical**: Manager agent auto-created; tasks delegated and validated
+**Memory system** (CrewAI 2025): Unified `Memory` class that replaces separate short/long-term/entity memory. Uses LLM to infer scope, categories, importance. Hierarchical scopes like a filesystem: `/project/alpha`, `/agent/researcher/findings`. Composite scoring: semantic similarity + recency + importance.
 
-**Built-in memory**:
-- Short-term: current task context
-- Long-term: SQLite-backed episodic memory
-- Shared entity memory: facts about entities across the crew
+**Agent attributes of note**:
+- `max_retry_limit`: Max retries on error (default 2)
+- `code_execution_mode`: `safe` (Docker) or `unsafe` (direct)
+- `respect_context_window`: Auto-summarizes to stay within limits
 
-**Use cases**: Marketing automation, content pipelines, research workflows, customer service
+### 4.2 AutoGen (Microsoft)
 
----
+**Model**: Message-passing between autonomous agents. Supports both synchronous and async multi-turn conversations.
 
-### LangGraph
+```python
+import autogen
 
-**Purpose**: Graph-based workflow orchestration for stateful agents  
-**Core insight**: Model agent workflows as directed graphs where nodes are LLM calls or functions, edges are transitions
+config_list = [{"model": "gpt-4", "api_key": "..."}]
 
-**Architecture**:
-- **State**: Shared typed object passed between all nodes
-- **Nodes**: Python functions or LLM calls that read/update state
-- **Edges**: Transitions between nodes (conditional or unconditional)
-- **Graph**: The compiled workflow
+assistant = autogen.AssistantAgent(
+    name="assistant",
+    llm_config={"config_list": config_list},
+)
+
+user_proxy = autogen.UserProxyAgent(
+    name="user_proxy",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=10,
+    code_execution_config={"work_dir": "coding"},
+)
+
+user_proxy.initiate_chat(
+    assistant,
+    message="Write a Python script to scrape Hacker News top stories",
+)
+```
+
+AutoGen patterns:
+- **Two-agent chat**: UserProxy + Assistant (most common)
+- **Group chat**: Multiple agents in a conversation with a GroupChatManager routing messages
+- **Nested chat**: Agents can spawn sub-conversations internally
+- **Reflection**: Agent critiques its own output before returning
+
+### 4.3 LangGraph
+
+**Model**: Graph-based state machine. Explicit state, deterministic routing with conditional edges, supports cycles.
 
 ```python
 from langgraph.graph import StateGraph, END
-from typing import TypedDict
+from langgraph.checkpoint.memory import MemorySaver
 
-class AgentState(TypedDict):
-    task: str
+# State is a TypedDict shared across all nodes
+class State(TypedDict):
+    messages: Annotated[list, add_messages]
+    plan: str
     code: str
     test_results: str
-    done: bool
+    iteration: int
 
-def write_code(state: AgentState) -> AgentState:
-    # LLM writes code based on task
-    code = llm.invoke(f"Write code for: {state['task']}")
-    return {"code": code}
+graph = StateGraph(State)
 
-def run_tests(state: AgentState) -> AgentState:
-    # Execute tests
-    results = subprocess.run(["pytest"], capture_output=True)
-    return {"test_results": results.stdout}
+# Add nodes
+graph.add_node("planner", plan_task)
+graph.add_node("coder", write_code)
+graph.add_node("tester", run_tests)
 
-def check_done(state: AgentState) -> str:
-    if "passed" in state["test_results"]:
-        return "done"
-    return "fix"
-
-def fix_code(state: AgentState) -> AgentState:
-    fixed = llm.invoke(f"Fix this code:\n{state['code']}\nError:\n{state['test_results']}")
-    return {"code": fixed}
-
-# Build graph
-workflow = StateGraph(AgentState)
-workflow.add_node("write", write_code)
-workflow.add_node("test", run_tests)
-workflow.add_node("fix", fix_code)
-
-workflow.set_entry_point("write")
-workflow.add_edge("write", "test")
-workflow.add_conditional_edges("test", check_done, {"done": END, "fix": "fix"})
-workflow.add_edge("fix", "test")
-
-app = workflow.compile()
-result = app.invoke({"task": "Implement a binary search function"})
-```
-
-**Key features**:
-- **Cycles**: Unlike DAGs, LangGraph supports loops (critical for agent retry loops)
-- **Persistence**: Built-in checkpointing; resume interrupted workflows
-- **Human-in-loop**: Pause at any edge for human approval
-- **Streaming**: Stream intermediate state updates
-- **Subgraphs**: Compose larger graphs from smaller ones
-
-**Supervisor pattern** (Orchestrator-Worker in LangGraph):
-```python
-# Supervisor routes to specialized agents
-def supervisor(state):
-    task = state["current_task"]
-    if "test" in task:
-        return {"next": "tester"}
-    elif "code" in task:
-        return {"next": "coder"}
-    else:
-        return {"next": "researcher"}
-```
-
-**Use cases**: Complex stateful workflows, human-in-loop approval flows, retry/error-recovery loops, production agentic systems requiring observability
-
----
-
-### OpenAI Swarm / Agents SDK
-
-**OpenAI Swarm** (October 2024):
-- Experimental educational framework
-- Two primitives: Agents + Handoffs
-- Stateless (no state between runs)
-- Designed for simplicity, not production scale
-
-**OpenAI Agents SDK** (2025, production successor to Swarm):
-- Production-hardened
-- Persistent state across turns
-- Built-in tracing and observability
-- Guardrails: input/output validation
-- Handoffs: structured agent transfer with context passing
-
-```python
-from agents import Agent, Runner, handoff
-
-billing_agent = Agent(
-    name="Billing",
-    instructions="Handle billing inquiries and payments."
+# Add edges with routing logic
+graph.add_conditional_edges(
+    "tester",
+    lambda s: "coder" if "FAILED" in s["test_results"] and s["iteration"] < 5 else END,
 )
 
-tech_agent = Agent(
-    name="Technical Support",
-    instructions="Resolve technical issues and bugs."
-)
+# Compile with persistence
+checkpointer = MemorySaver()
+app = graph.compile(checkpointer=checkpointer)
+
+# Run with thread_id for persistence
+config = {"configurable": {"thread_id": "feature-xyz-001"}}
+result = app.invoke({"messages": [("user", "Implement feature X")]}, config)
+```
+
+LangGraph strengths:
+- Maximum control over workflow logic
+- Built-in human-in-the-loop (interrupt points)
+- State is fully inspectable and debuggable
+- LangSmith tracing integration
+
+LangChain's "Deep Agents" (2025) — built on LangGraph — add batteries-included features: automatic long conversation compression, virtual filesystem, subagent spawning.
+
+### 4.4 OpenAI Agents SDK
+
+**Model**: Agents with handoffs. An agent runs until it either completes its task or hands off to another agent.
+
+```python
+from agents import Agent, Runner
 
 triage_agent = Agent(
-    name="Triage",
-    instructions="Route customer queries appropriately.",
-    handoffs=[billing_agent, tech_agent]  # Can hand off to these
+    name="Triage Agent",
+    instructions="Route to the correct specialist",
+    handoffs=[spanish_agent, billing_agent, tech_agent],
 )
 
-result = await Runner.run(triage_agent, "I can't access my account")
+result = await Runner.run(triage_agent, "Necesito ayuda con mi factura")
 ```
+
+Simple, clean API. Handoffs are explicit — an agent declares which agents it can transfer to. Tracing built-in.
+
+### 4.5 Google ADK (Agent Development Kit)
+
+Focuses on multi-agent pipelines with Google Cloud integration. Supports `SequentialAgent`, `ParallelAgent`, and `LoopAgent` primitives.
+
+### 4.6 MetaGPT
+
+Simulates a software company: Product Manager, Architect, Engineer, QA Engineer roles with structured document passing (PRD → Architecture → Code → Tests).
 
 ---
 
-## Coordination Patterns (Cross-Framework)
+## 5. Communication Protocols
 
-### Pattern: Shared Blackboard
+### Agent-to-Agent (A2A)
 
-All agents read/write to a shared state store:
-
-```
-Agent 1 ──writes──▶ ┌──────────────┐
-Agent 2 ──writes──▶ │  Shared      │ ◀──reads── Agent 3
-Agent 4 ──reads──▶  │  State/DB    │ ◀──reads── Agent 5
-                    └──────────────┘
-```
-
-Used by LangGraph (typed state), AutoGen (conversation history), and many custom implementations.
-
-### Pattern: Message Bus
-
-Agents publish and subscribe to topics:
+Google's open A2A protocol enables agents to discover each other and exchange tasks. Agents expose capability cards, receive tasks via JSON-RPC, stream progress via SSE.
 
 ```
-Agent 1 ──publish("code.written")──▶ ┌─────────┐
-Agent 2 ──publish("tests.run")──────▶│ Message │
-                                      │   Bus   │
-Agent 3 ◀──subscribe("code.*")───────└─────────┘
-Agent 4 ◀──subscribe("tests.*")──────┘
+Client Agent ──── POST /tasks/send ────▶ Remote Agent
+               ◄── streaming status ────
+               ◄── final result ─────────
 ```
 
-Used by AutoGen 0.4's actor model with typed message routing.
+### Model Context Protocol (MCP)
 
-### Pattern: Voting / Consensus
-
-Multiple agents produce independent outputs; a final agent (or majority vote) selects the best:
+Anthropic's MCP lets agents connect to tools/data sources as clients. MCP servers expose tools, resources, and prompts that any MCP-compatible agent can consume.
 
 ```
-Task ──▶ Agent 1 ──▶ Solution A ──┐
-Task ──▶ Agent 2 ──▶ Solution B ──┼──▶ Judge/Vote ──▶ Final
-Task ──▶ Agent 3 ──▶ Solution C ──┘
+Agent (MCP client) ──── JSON-RPC 2.0 ────▶ MCP Server
+                                           (tools: bash, github, slack, etc.)
 ```
 
-Used by Agentless (sample k patches, select via majority vote), and LLM-as-judge patterns.
+This enables tool discovery and standardized agent ↔ tool interfaces without custom integration work.
 
-### Pattern: Hierarchical Delegation with Verification
+### Blackboard / Shared State
 
-```
-Manager
-  → Assign task to Worker
-  ← Receive result
-  → Verify result (re-check, run tests)
-  → Accept if valid, else re-assign or fix
-```
-
-Used by CrewAI hierarchical process, Devin 2.0 orchestration.
+All agents read/write to a shared data structure. Common in LangGraph (`State`) and AutoGen (`GroupChat`). The blackboard holds the full task context; agents pick up and add to it.
 
 ---
 
-## When to Use Each Pattern
+## 6. Shared State Management
 
-| Pattern | Use When | Avoid When |
-|---------|---------|-----------|
-| Orchestrator-Worker | Clear task decomposition, 3-8 agents, auditability needed | >10 workers (orchestrator bottleneck), inter-worker communication needed |
-| Swarm | Parallel exploration, no clear decomposition, real-time responsiveness | Auditability required, deterministic output expected |
-| Pipeline | Sequential transformations, each step well-defined | Any step can fail unpredictably, stages are tightly coupled |
-| Hierarchical | 10+ agents, multiple abstraction layers, enterprise scale | Fast iteration needed, overhead acceptable |
-| Mesh | Creative collaboration, consensus-seeking | Production systems (too unpredictable) |
+### State Schema Design
 
-**Key advice** (from aihola.com): "Reconsider whether you need multiple agents at all." Single agents with good tools often outperform complex multi-agent systems for tasks under ~1 hour of work.
+```python
+# LangGraph state for a software engineering agent swarm
+class SwarmState(TypedDict):
+    # Inputs
+    issue_description: str
+    repository_url: str
+    
+    # Shared working state
+    plan: list[str]
+    current_step: int
+    files_modified: list[str]
+    
+    # Agent outputs
+    research_findings: str
+    implementation: dict[str, str]  # filename -> content
+    test_results: str
+    
+    # Control
+    iteration: int
+    max_iterations: int
+    final_pr_url: str
+```
+
+### Conflict Prevention
+
+When multiple agents write to shared state simultaneously:
+- **Optimistic locking**: Include version/timestamp; fail if stale
+- **Partitioned state**: Each agent owns specific state fields
+- **Message passing**: Use queues instead of shared writes
+- **Append-only**: Agents append to lists rather than overwriting
 
 ---
 
-## Production Considerations
+## 7. Parallel vs. Sequential Trade-offs
 
-### State Management
+| Dimension | Parallel | Sequential |
+|-----------|----------|-----------|
+| Speed | ✅ Faster for independent tasks | ❌ Slower, one task at a time |
+| Consistency | ❌ Harder to manage (race conditions) | ✅ Each step sees prior results |
+| Debugging | ❌ More complex trace analysis | ✅ Clear linear trace |
+| Cost | ❌ All agents run (even if earlier failure) | ✅ Can stop early on failure |
+| Use case | Research + analysis, test suites | Build pipelines, code review |
 
-- **Ephemeral state**: In-memory, lost on restart. Suitable for short tasks.
-- **Persistent state**: SQLite/Postgres-backed. Required for long-running tasks, recovery, audit.
-- **Distributed state**: Redis/cloud store. Required for parallel agents across machines.
+**Hybrid pattern**: Fan-out for independent sub-tasks, then fan-in for aggregation, then sequential for dependent steps.
 
-### Failure Handling
+---
 
-Common failure modes in multi-agent systems:
-1. **Agent deadlock**: Agents waiting on each other with no progress
-2. **Runaway loops**: Agent keeps retrying without progress (implement step limits)
-3. **Context overflow**: Accumulated history exceeds model context window
-4. **Tool failure cascades**: One tool failure causes downstream agent failures
-5. **Inconsistent state**: Parallel agents write conflicting updates
-
-Mitigations:
-- Max iteration limits on all loops
-- Timeout on all agent steps
-- Idempotent writes (safe to retry)
-- Optimistic locking on shared state
-- Circuit breakers for external tool calls
+## 8. Production Considerations
 
 ### Observability
+- Trace every agent call with IDs (run_id, session_id, agent_id, step_id)
+- Log both inputs and outputs to each agent
+- Track token consumption per agent and per workflow
+- LangSmith, Weights & Biases, Helicone for multi-agent tracing
 
-Multi-agent systems are harder to debug than single agents. Essential telemetry:
-- **Trace ID**: Unique ID per top-level task that propagates to all sub-agents
-- **Span per agent step**: Start time, end time, input, output, tool calls
-- **State snapshots**: Record full state at each checkpoint
-- **Token counts**: Track token usage per agent per step
+### Failure Modes
+- **Agent deadlock**: Two agents waiting on each other — use timeouts and maximum iteration limits
+- **Context explosion**: Accumulated history fills all windows — use summarization, context pruning
+- **Tool hallucination**: Agent calls non-existent tools — strict tool schemas + validation
+- **Goal drift**: Sub-agent pursues a sub-goal that diverges from original intent — orchestrator validation gates
 
-Frameworks with built-in observability:
-- **LangGraph**: Built-in tracing, LangSmith integration
-- **OpenAI Agents SDK**: Native tracing
-- **AutoGen 0.4**: Structured logging across the actor runtime
-
----
-
-## Comparison Table
-
-| Framework | Pattern | Language | Open Source | Production-Ready | Best For |
-|-----------|---------|---------|-------------|-----------------|---------|
-| AutoGen 0.4 | Actor/Conversation | Python | ✅ | ✅ | Enterprise, research |
-| LangGraph | Graph/DAG | Python | ✅ | ✅ | Complex stateful workflows |
-| CrewAI | Role-based | Python | ✅ | ✅ | Business automation |
-| OpenAI Agents SDK | Swarm/Handoffs | Python | ✅ | ✅ | OpenAI-stack products |
-| OpenAI Swarm | Swarm | Python | ✅ | ❌ (educational) | Learning, prototyping |
-| Claude Code Teams | Orchestrator-Worker | Any | ❌ | ✅ | Coding tasks |
-| Devin 2.0 | Hierarchical | Any | ❌ | ✅ | Software engineering |
+### Cost Management
+- Use cheaper models (Haiku) for exploration/classification
+- Use expensive models (Opus) only for complex reasoning
+- Spawn subagents for isolated work so main context stays clean
+- Cache repeated tool schemas with prompt caching
 
 ---
 
 ## Sources
 
-1. DEV.to — "Agent Orchestration Patterns: Swarm vs Mesh vs Hierarchical vs Pipeline": https://dev.to/jose_gurusup_dev/agent-orchestration-patterns-swarm-vs-mesh-vs-hierarchical-vs-pipeline-b40
-2. OpenAI Swarm GitHub: https://github.com/openai/swarm
-3. OpenAI Cookbook — "Orchestrating Agents: Routines and Handoffs": https://cookbook.openai.com/examples/orchestrating_agents
-4. OpenAI Agents SDK: https://openai.github.io/openai-agents-python/
-5. Microsoft AutoGen v0.4 Research: https://www.microsoft.com/en-us/research/articles/autogen-v0-4-reimagining-the-foundation-of-agentic-ai-for-scale-extensibility-and-robustness/
-6. AutoGen 0.4 Architecture Preview: https://microsoft.github.io/autogen/0.2/blog/2024/10/02/new-autogen-architecture-preview/
-7. AutoGen Multi-Agent Conversation: https://microsoft.github.io/autogen/0.2/docs/Use-Cases/agent_chat/
-8. CrewAI GitHub: https://github.com/crewAIInc/crewAI
-9. CrewAI Tasks docs: https://docs.crewai.com/en/concepts/tasks
-10. LangChain — LangGraph: https://www.langchain.com/langgraph
-11. Anthropic — "Building Effective Agents": https://www.anthropic.com/research/building-effective-agents
-12. aihola.com — "Multi-Agent Orchestration Patterns Guide": https://aihola.com/article/multi-agent-orchestration-patterns-guide
-13. digitalapplied.com — "AI Agent Orchestration Workflows Guide": https://www.digitalapplied.com/blog/ai-agent-orchestration-workflows-guide
+- adopt.ai: Multi-Agent Frameworks Explained — https://www.adopt.ai/blog/multi-agent-frameworks
+- CrewAI Agents docs — https://docs.crewai.com/concepts/agents
+- CrewAI Memory docs — https://docs.crewai.com/concepts/memory
+- LangChain overview — https://docs.langchain.com/oss/python/langchain/overview
+- AutoGen design patterns — https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/design-patterns/intro.html
+- Introl: Claude Code CLI Technical Reference — https://introl.com/blog/claude-code-cli-comprehensive-guide-2025
+- arXiv: AI Agentic Programming Survey (2508.11126) — https://arxiv.org/html/2508.11126v1
+- digitalapplied.com: AI Agent Orchestration Workflows Guide — https://www.digitalapplied.com/blog/ai-agent-orchestration-workflows-guide

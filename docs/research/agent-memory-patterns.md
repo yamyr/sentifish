@@ -1,535 +1,490 @@
 # Memory and State Management in Coding Agents
 
-> Research compiled: March 2026  
-> Topics: Episodic, procedural, semantic memory, persistence patterns, MEMORY.md files, vector stores, state management
+> Research note covering episodic vs semantic memory, vector stores, MemGPT/Letta, working memory, external stores, and how OpenCode/Claude Code/Devin maintain state across sessions.
 
 ---
 
-## Overview
+## 1. Why Memory Matters
 
-Memory is one of the defining challenges in building effective long-running agents. Unlike humans who maintain continuous memory across time, AI agents are fundamentally stateless — each invocation starts fresh with no inherent recollection of past events. Yet effective coding agents need to:
+Without memory, every session starts from zero. The agent can't:
+- Learn from past mistakes
+- Recall project-specific conventions it discovered last week
+- Continue a multi-day task without re-reading all prior context
+- Personalize behavior based on user preferences
+- Build cumulative knowledge about a codebase
 
-- Remember preferences and constraints established in earlier sessions
-- Recall decisions made about architecture and design
-- Know what files were modified and why
-- Learn from past mistakes to avoid repeating them
-- Maintain consistent style and conventions across a large project
+This is why coding agents that feel "smart" in session but "dumb" across sessions are frustrating to use. Memory is the bridge between ephemeral context windows and persistent intelligence.
 
-Building memory systems for coding agents is an active area of research and engineering. This document covers the taxonomy of memory types, concrete implementation patterns, and how leading systems approach the problem.
-
----
-
-## The Three Types of Long-Term Memory
-
-Cognitive science distinguishes three types of long-term memory, and this framework maps directly onto AI agent memory systems:
-
-### 1. Episodic Memory
-
-**Definition:** Memory of specific past events — "what happened when."
-
-In human cognition, episodic memory stores autobiographical experiences: "Last Tuesday I debugged the authentication module and found a race condition."
-
-In AI agents, episodic memory stores:
-- Past conversation turns and decisions
-- Specific bugs encountered and solutions found
-- Error messages seen and resolutions applied
-- What approaches were tried and failed
-- Timeline of changes made to the codebase
-
-**Implementation approaches:**
-- Raw conversation logs stored to disk
-- Timestamped event databases (SQLite, PostgreSQL)
-- Vector stores with temporal metadata for retrieval
-- Conversation summaries organized by date
-
-**Key challenge:** Episodic stores grow unbounded. Without curation, they become noisy and retrieval quality degrades.
-
-### 2. Semantic Memory
-
-**Definition:** General knowledge and facts — "what is true."
-
-In human cognition, semantic memory stores facts independent of when they were learned: "Python's GIL prevents true parallel threading."
-
-In AI agents, semantic memory stores:
-- Codebase facts: "The auth module uses JWT tokens, not sessions"
-- Project constraints: "Never use lodash — use native ES6 methods"
-- API specifications and schemas
-- Architecture decisions and their rationale
-- Coding standards and style preferences
-
-**Implementation approaches:**
-- MEMORY.md / CLAUDE.md files loaded into system prompt
-- Vector stores for semantic retrieval of facts
-- Knowledge graphs for structured relationships
-- Configuration files (project-specific agent settings)
-
-**Key advantage:** Semantic memory is compact and stable. A well-curated semantic store might be only 2-10k tokens.
-
-### 3. Procedural Memory
-
-**Definition:** Knowledge of how to do things — "how to act."
-
-In human cognition, procedural memory stores learned skills: riding a bike, typing.
-
-In AI agents, procedural memory stores:
-- Standard workflows (how to deploy, how to run tests)
-- Code patterns and templates the project uses
-- Debugging methodologies that work for this codebase
-- Tool usage patterns
-- Learned heuristics from past successes and failures
-
-**Implementation approaches:**
-- SKILLS.md or workflow documents loaded into context
-- Few-shot examples in system prompt
-- Runbooks and SOPs for common tasks
-- Code templates and snippets
+The AI Agentic Programming Survey (arXiv 2508.11126) lists **lack of persistent memory across tasks** as one of the top key challenges in the field.
 
 ---
 
-## Short-Term vs Long-Term Memory
+## 2. Taxonomy of Agent Memory
 
-### Short-Term (Working Memory)
+### 2.1 By Temporal Scope
 
-Short-term memory in agents corresponds to the **context window** — everything currently in the active prompt:
+| Type | Analogy | What It Stores | Lifespan |
+|------|---------|---------------|---------|
+| **Working memory** | Human short-term | Active context window contents | Current session only |
+| **Episodic memory** | Autobiographical memory | Specific past events, interactions, experiences | Persistent, queryable |
+| **Semantic memory** | General knowledge | Facts, concepts, learned patterns | Persistent, queryable |
+| **Procedural memory** | Skill/habit | How-to knowledge, behavioral patterns | Persistent, baked into weights or prompts |
 
-- Currently reading files
-- Recent tool outputs
-- Active conversation turns
-- Current task description
+### 2.2 By Storage Mechanism
 
-**Characteristics:**
-- Immediately accessible (no retrieval needed)
-- Limited capacity (context window size)
-- Lost when session ends
-- "Free" in the sense of being always-available
-
-### Long-Term (Persistent Memory)
-
-Long-term memory persists across sessions via external storage:
-
-- Files on disk (MEMORY.md, logs, notes)
-- Databases (SQLite, PostgreSQL)
-- Vector stores (Chroma, Qdrant, pgvector)
-- Key-value stores (Redis)
-
-**Characteristics:**
-- Requires explicit read/write operations
-- Unlimited capacity (bounded by storage)
-- Survives session restarts
-- Requires retrieval to access
+| Mechanism | Examples | Retrieval Method | Best For |
+|-----------|----------|-----------------|---------|
+| **In-context** | Conversation history | Direct (it's in the prompt) | Current session, recent turns |
+| **File-based** | markdown files, JSON | Read on demand | Configuration, notes, handoff state |
+| **Database** | SQLite, PostgreSQL | SQL query | Structured records, logs |
+| **Vector store** | ChromaDB, Pinecone, pgvector | Semantic search (k-NN) | Unstructured memories, relevance retrieval |
+| **Cache/KV** | Redis, DynamoDB | Key lookup | Fast retrieval of known IDs |
+| **Model weights** | Fine-tuned model | Implicit (always available) | Stable, universal knowledge |
 
 ---
 
-## File-Based Memory Patterns (MEMORY.md Pattern)
+## 3. Working Memory: The Context Window
 
-The simplest and most widely used memory pattern for coding agents is **markdown files loaded into context**. This pattern has emerged organically in the Claude Code and similar agent communities.
-
-### CLAUDE.md / AGENTS.md Pattern
-
-Claude Code natively supports a hierarchical file loading system:
+The most fundamental form of memory is the current context window. Everything the agent "knows" right now is in here:
 
 ```
-~/.claude/CLAUDE.md              # User-global settings
-~/projects/myapp/CLAUDE.md       # Project-specific settings
-~/projects/myapp/src/CLAUDE.md   # Directory-specific settings
+┌─────────────────────────────────────────────────────┐
+│                  CONTEXT WINDOW                      │
+│                                                      │
+│  System prompt (role, instructions, tools)           │
+│  ─────────────────────────────────────────────────  │
+│  Tool results from this session                      │
+│  ─────────────────────────────────────────────────  │
+│  Conversation history (most recent turns)            │
+│  ─────────────────────────────────────────────────  │
+│  Injected external memory (retrieved this turn)      │
+└─────────────────────────────────────────────────────┘
 ```
 
-All these files are automatically loaded into the system prompt at the start of each session.
-
-**Typical CLAUDE.md content:**
-```markdown
-# Project: MyApp Backend
-
-## Stack
-- Python 3.11
-- FastAPI + SQLAlchemy
-- PostgreSQL (production), SQLite (tests)
-
-## Conventions
-- Use Pydantic v2 models for all schemas
-- Never use print() — use logger.info() 
-- Tests go in tests/unit/ or tests/integration/
-
-## Preferences
-- Prefer explicit over implicit
-- Always add type hints
-- Write docstrings for all public functions
-
-## Decisions Made
-- Auth uses JWT, not sessions (decided 2024-01-15)
-- Redis for rate limiting, not in-process
-- Celery for background tasks, not threads
-```
-
-### MEMORY.md Pattern (Procedural/Episodic Blend)
-
-A more dynamic pattern used by OpenClaw and other harnesses:
-
-```markdown
-# Memory Log
-
-## 2025-03-27
-
-- Fixed N+1 query issue in UserRepository.get_by_email()
-- Deployed new auth flow to staging — working
-- TODO: Update auth docs when main is merged
-
-## 2025-03-26
-
-- Tried using orjson for JSON parsing — incompatible with Pydantic v2 validators
-- Reverted to standard json module
-- The CORS issue was caused by missing OPTIONS handler in nginx config
-```
-
-**Key properties:**
-- Agent writes to this file after significant events
-- File grows over time (requires periodic curation)
-- Loaded into context each session for continuity
-- Human-readable and editable
-
-### Claude Code's Undocumented Memory Directory
-
-Discovered by the community in early 2026:
-```
-~/.claude/projects/<project-path>/memory/MEMORY.md
-```
-
-If a MEMORY.md file exists in this path, it's automatically loaded into the system prompt for that project. This enables per-project persistent memory without modifying the project's own files.
+Working memory management is covered in detail in `context-management.md`. The key constraint: when the session ends, working memory evaporates unless explicitly persisted.
 
 ---
 
-## Vector Store-Based Memory
+## 4. File-Based Memory: The Simplest Persistent Store
 
-For large memory stores where file-based loading would consume too much context, vector stores enable semantic retrieval:
+The most pragmatic and widely-used persistent memory pattern in coding agents is simply **reading and writing files**.
 
-### Architecture
+### Anthropic Memory Tool
 
-```
-Agent experiences events
-       ↓
-Memory Manager (writes to vector store)
-       ↓
-Vector Store (Chroma/Qdrant/pgvector)
-       ↓ (at query time)
-Semantic search for relevant memories
-       ↓
-Inject top-K memories into context
+Claude's `memory_20250818` tool implements this pattern at the API level:
+
+```json
+{
+  "type": "memory_20250818",
+  "name": "memory"
+}
 ```
 
-### Example Implementation
+When enabled, Claude automatically:
+1. Checks `/memories` directory at the start of tasks
+2. Reads relevant files to load context
+3. Writes new learnings as files when useful
+4. Updates files when existing info changes
 
-```python
-from chromadb import Client
-from anthropic import Anthropic
+Example interaction flow:
+```text
+User: "Help me respond to this customer service ticket."
 
-class AgentMemory:
-    def __init__(self):
-        self.db = Client()
-        self.memories = self.db.get_or_create_collection("agent_memories")
-    
-    def store(self, content: str, metadata: dict):
-        """Store a memory with automatic embedding"""
-        self.memories.add(
-            documents=[content],
-            metadatas=[metadata],
-            ids=[f"memory_{hash(content)}"]
-        )
-    
-    def retrieve(self, query: str, n: int = 5) -> list[str]:
-        """Retrieve relevant memories for a query"""
-        results = self.memories.query(
-            query_texts=[query],
-            n_results=n
-        )
-        return results['documents'][0]
-    
-    def build_context_prefix(self, task: str) -> str:
-        """Build a context-efficient memory prefix"""
-        relevant = self.retrieve(task)
-        if not relevant:
-            return ""
-        return "## Relevant past experiences:\n" + "\n".join(
-            f"- {m}" for m in relevant
-        )
+Claude → memory tool: view /memories
+Response: customer_service_guidelines.xml, refund_policies.xml
+
+Claude → memory tool: view /memories/customer_service_guidelines.xml
+Response: [contents]
+
+Claude: "Based on your customer service guidelines, I can help..."
 ```
 
-### Memory Types in Vector Store
+The memory tool is **client-side**: you control where the data lives. You can back it by:
+- Local filesystem
+- Cloud storage (S3, GCS)
+- Database blobs
+- Encrypted storage
 
-Different memory types benefit from different embedding/retrieval strategies:
+From the docs:
+> "This is the key primitive for just-in-time context retrieval: rather than loading all relevant information upfront, agents store what they learn in memory and pull it back on demand."
 
-| Memory Type | Embedding Model | Chunk Strategy | Retrieval Method |
-|-------------|----------------|----------------|-----------------|
-| Code changes | Code-specific (CodeBERT) | Per file/function | Cosine similarity |
-| Decisions | Text (ada-002) | Per decision | Semantic search |
-| Errors/fixes | Text + code hybrid | Per error-fix pair | Keyword + semantic |
-| Preferences | Text | Per preference | Always-include |
+### Claude Code Memory Files
 
----
+Claude Code uses a hierarchical memory file system:
+- `CLAUDE.md` (project root): Project-specific instructions, conventions, architecture notes
+- `~/.claude/CLAUDE.md` (global): User preferences, cross-project patterns
+- `AGENTS.md`: Additional agent guidance (can stack with CLAUDE.md)
 
-## Checkpointing and State Persistence
-
-For long-running agents working on complex tasks, **checkpointing** persists intermediate state:
-
-### What to Checkpoint
-
-```python
-@dataclass
-class AgentCheckpoint:
-    task_id: str
-    timestamp: datetime
-    
-    # Task state
-    task_description: str
-    subtasks_completed: list[str]
-    subtasks_remaining: list[str]
-    
-    # Codebase state
-    files_modified: list[str]
-    git_commit_hash: str  # Point-in-time snapshot
-    
-    # Working memory
-    current_hypothesis: str
-    errors_encountered: list[str]
-    approaches_tried: list[str]
-    
-    # Tools state
-    test_results: dict  # {test_name: pass/fail}
-    last_bash_output: str
-```
-
-### Git as Memory
-
-A powerful pattern for coding agents: **use git as the episodic memory store**:
+These files are automatically loaded into every session's context. The model can edit them during a session to persist learnings:
 
 ```bash
-# After each significant change
-git add -A
-git commit -m "Agent checkpoint: implemented JWT validation
-- Modified: src/auth/handlers.py, src/auth/models.py
-- Tests passing: test_auth.py (12/12)
-- Reasoning: Switched from sessions to JWT for stateless auth"
+# Claude Code reads this at session start
+# CLAUDE.md
+## Project Conventions
+- Use pytest for tests
+- Async functions must use trio, not asyncio
+- PR titles must start with Jira ticket number
+
+## Architecture Notes
+- Auth module is in src/auth/ — don't touch without reading RFC-001.md
+- Database migrations are auto-applied on startup via alembic
 ```
 
-**Benefits:**
-- Free — git is already there
-- Recoverable — can roll back to any point
-- Diff-able — can see exactly what changed when
-- Branch-able — try approaches in branches
-- Human-readable with good commit messages
+### OpenClaw Pattern
 
-**Accessing git history as memory:**
-```bash
-git log --oneline -20  # See recent agent actions
-git diff HEAD~5        # See changes from last 5 agent turns
-git show HEAD:src/auth/handlers.py  # See file at any point
-```
+OpenClaw's Claude-as-assistant uses daily memory files (`memory/YYYY-MM-DD.md`), a long-term `MEMORY.md`, and a `SOUL.md` — a pure file-based memory system that provides continuity across sessions without any vector database.
 
 ---
 
-## Memory Architectures in Production Systems
+## 5. MemGPT / Letta: Tiered Memory Architecture
 
-### Claude Code's Memory Hierarchy
+MemGPT (now Letta) was the first system to give LLMs an **OS-like memory management model**:
 
 ```
-Level 1 (Always Present):
-  - ~claude/CLAUDE.md (global user settings)
-  - <project>/CLAUDE.md (project settings)
-  - <dir>/CLAUDE.md (directory settings)
-  - ~/.claude/projects/<path>/memory/MEMORY.md
-
-Level 2 (Loaded on demand via Skills):
-  - ~/.claude/skills/*.md
-  - Activated by /skill-name or automatically
-
-Level 3 (Retrieved via tools):
-  - File reads (explicit)
-  - Web searches
-  - grep/find for code navigation
+┌─────────────────────────────────────────────────┐
+│              MAIN CONTEXT (fast)                 │
+│   System prompt + recent conversation            │
+│   ← fits in context window                      │
+├─────────────────────────────────────────────────┤
+│              RECALL STORAGE (medium)             │
+│   Full conversation history                      │
+│   ← searchable, but not always in context       │
+├─────────────────────────────────────────────────┤
+│              ARCHIVAL STORAGE (slow)             │
+│   Long-term knowledge, reference docs, history   │
+│   ← large, indexed, vector search               │
+└─────────────────────────────────────────────────┘
 ```
 
-### Mem0: Memory-as-a-Service
+The model explicitly manages these tiers using memory tools:
+- `core_memory_append`: Add to the main context (persona/human blocks)
+- `core_memory_replace`: Replace content in main context
+- `archival_memory_insert`: Write to long-term archival storage
+- `archival_memory_search`: Retrieve from archival storage
+- `conversation_search`: Search the recall (conversation) history
 
-**Mem0** is a managed memory service for AI agents with:
-- User-level, session-level, and agent-level memory
-- Automatic deduplication and contradiction resolution
-- REST API for easy integration
-- SDKs for Python, JavaScript
+This gives the LLM explicit control over its own memory — it decides what's worth keeping, what to archive, and when to retrieve.
+
+### Letta API (2025 version)
 
 ```python
-from mem0 import MemoryClient
+from letta_client import Letta
 
-client = MemoryClient(api_key="...")
+client = Letta(api_key=os.getenv("LETTA_API_KEY"))
 
-# Store memories automatically
-client.add("The project uses FastAPI, never Flask", user_id="project_auth")
-client.add("Always write async route handlers", user_id="project_auth")
-
-# Retrieve relevant memories
-memories = client.search("how to write routes", user_id="project_auth")
-```
-
-### LangChain Memory Modules
-
-LangChain provides multiple memory backends:
-
-```python
-from langchain.memory import (
-    ConversationBufferMemory,      # Simple buffer
-    ConversationSummaryMemory,     # Auto-summarize
-    ConversationVectorStoreMemory, # Semantic retrieval
-    CombinedMemory,                # Combine multiple
+# Create a stateful agent with persistent memory blocks
+agent_state = client.agents.create(
+    model="openai/gpt-5.2",
+    memory_blocks=[
+        {
+            "label": "human",
+            "value": "Name: Timber. Role: Lead Engineer. Prefers concise responses."
+        },
+        {
+            "label": "persona", 
+            "value": "I am a coding assistant with deep knowledge of this codebase."
+        },
+    ],
+    tools=["web_search", "fetch_webpage"],
 )
 
-# Combined: recent buffer + semantic retrieval
-memory = CombinedMemory(memories=[
-    ConversationBufferMemory(k=5),  # Last 5 turns always
-    ConversationVectorStoreMemory(  # Semantic retrieval from full history
-        vectorstore=chroma_store,
-        k=3
-    )
-])
+# Agent remembers state across calls
+response1 = client.agents.messages.create(agent_state.id, input="I'm refactoring auth")
+response2 = client.agents.messages.create(agent_state.id, input="What was I working on?")
+# Agent correctly recalls the refactoring context
 ```
 
-### Redis-Based Memory
+Letta is **model-agnostic** — works with Opus, GPT-5, and open models. The memory persistence layer is independent of the LLM provider.
 
-Redis provides both fast key-value storage and vector search (RediSearch):
+---
+
+## 6. Vector Stores for Semantic Memory
+
+When memories are unstructured (notes, observations, decisions), vector stores enable **semantic retrieval** — finding relevant past events even without exact keyword matches.
+
+### Vector Memory Architecture
+
+```python
+import chromadb
+from sentence_transformers import SentenceTransformer
+
+class AgentSemanticMemory:
+    def __init__(self, agent_id: str):
+        self.agent_id = agent_id
+        self.encoder = SentenceTransformer("all-MiniLM-L6-v2")
+        self.client = chromadb.PersistentClient(path=f"./memory/{agent_id}")
+        self.collection = self.client.get_or_create_collection("memories")
+    
+    def remember(self, content: str, metadata: dict = None):
+        """Store a memory with semantic embedding"""
+        embedding = self.encoder.encode(content).tolist()
+        memory_id = f"mem_{int(time.time())}_{hash(content) % 10000}"
+        self.collection.add(
+            embeddings=[embedding],
+            documents=[content],
+            metadatas=[{
+                "timestamp": time.time(),
+                "agent_id": self.agent_id,
+                **(metadata or {})
+            }],
+            ids=[memory_id]
+        )
+    
+    def recall(self, query: str, top_k: int = 5, recency_boost: bool = True) -> list[str]:
+        """Retrieve semantically similar memories"""
+        query_embedding = self.encoder.encode(query).tolist()
+        results = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=top_k * 2 if recency_boost else top_k,
+        )
+        memories = list(zip(results["documents"][0], results["metadatas"][0]))
+        
+        if recency_boost:
+            now = time.time()
+            # Re-rank: blend semantic similarity with recency
+            scored = []
+            for i, (doc, meta) in enumerate(memories):
+                semantic_score = 1.0 / (i + 1)  # rank-based
+                age_days = (now - meta["timestamp"]) / 86400
+                recency_score = 1.0 / (1 + age_days)
+                final_score = 0.7 * semantic_score + 0.3 * recency_score
+                scored.append((final_score, doc))
+            scored.sort(reverse=True)
+            return [doc for _, doc in scored[:top_k]]
+        
+        return results["documents"][0][:top_k]
+```
+
+### SWE-agent Vector DB
+
+SWE-agent uses a vector DB to retrieve:
+- Tool outputs from prior turns
+- Plan state snapshots
+- Code snippets that were relevant earlier
+
+The retrieval happens before each agent step: the harness embeds the current task description and retrieves top-K relevant past context, injecting it into the prompt.
+
+---
+
+## 7. CrewAI Memory System
+
+CrewAI 2025 introduced a **unified Memory class** with intelligent scope inference:
+
+```python
+from crewai import Memory
+
+memory = Memory(
+    recency_weight=0.4,    # How much to favor recent memories
+    semantic_weight=0.4,   # How much to favor semantic similarity
+    importance_weight=0.2, # How much to favor importance score
+    recency_half_life_days=14,  # Decay constant for recency
+)
+
+# Store with automatic scope inference
+memory.remember("We decided to use PostgreSQL for the user database.")
+# LLM infers scope: /project/decisions or /engineering/database
+
+# Explicit scope
+memory.remember("Sprint velocity is 42 points", scope="/team/metrics")
+
+# Recall with composite scoring
+matches = memory.recall("What database did we choose?")
+for m in matches:
+    print(f"[score={m.score:.2f}] {m.record.content}")
+
+# Hierarchical scope tree
+print(memory.tree())
+# / (15 records)
+#   /project (8 records)
+#     /project/alpha (5 records)
+#   /agent (7 records)
+#     /agent/researcher (4 records)
+```
+
+Scope inference works like a filesystem — memories are organized into hierarchical paths that grow organically from content. Agents can have **scoped views** (private subtrees) while the crew shares a global tree.
+
+---
+
+## 8. Episodic Memory Implementation
+
+Episodic memory stores specific events with temporal context — the "what happened when" store.
+
+```python
+import json
+from datetime import datetime
+from pathlib import Path
+
+class EpisodicMemory:
+    """Append-only log of agent experiences"""
+    
+    def __init__(self, session_dir: Path):
+        self.session_dir = session_dir
+        self.log_file = session_dir / "episodes.jsonl"
+        session_dir.mkdir(parents=True, exist_ok=True)
+    
+    def record(self, event_type: str, content: dict):
+        entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "event_type": event_type,
+            "session_id": self.session_id,
+            **content
+        }
+        with self.log_file.open("a") as f:
+            f.write(json.dumps(entry) + "\n")
+    
+    def get_episodes(self, event_types: list[str] = None, since: datetime = None) -> list:
+        episodes = []
+        with self.log_file.open() as f:
+            for line in f:
+                ep = json.loads(line)
+                if event_types and ep["event_type"] not in event_types:
+                    continue
+                if since and ep["timestamp"] < since.isoformat():
+                    continue
+                episodes.append(ep)
+        return episodes
+
+# Usage
+memory = EpisodicMemory(Path("./agent_history"))
+memory.record("file_edited", {"path": "src/auth.py", "change_summary": "Fixed token expiry bug"})
+memory.record("test_run", {"passed": 14, "failed": 2, "failures": ["test_login_expired"]})
+memory.record("decision", {"decision": "Use bcrypt instead of sha256", "rationale": "Security audit finding"})
+```
+
+---
+
+## 9. Cross-Session State: How Agents Maintain Continuity
+
+### Devin (Cognition AI)
+
+Devin maintains a persistent VM state across sessions:
+- File system state persists (the repo stays checked out)
+- Browser session state (cookies, auth tokens)
+- Terminal history (previous commands)
+- A dedicated scratchpad for notes
+
+Each new session can resume by inspecting current file system state and the scratchpad. Devin doesn't need to reconstruct what happened — it can see what changed via `git log`.
+
+### Claude Code
+
+Claude Code uses:
+- `CLAUDE.md` files (project + global) as persistent configuration memory
+- Git history as the episodic record (what was built, when, by whom)
+- MCP connections that persist across sessions (databases, external services)
+- No native cross-session conversation memory (each session starts fresh)
+
+The design philosophy: **files and git are the persistent memory**. The model reads `CLAUDE.md`, reads the recent git log, and reconstructs context from what's there.
+
+### OpenCode / Letta Code
+
+Letta Code explicitly addresses the cross-session memory gap with its tiered memory system. The agent has a `memory_blocks` structure that persists between calls:
+- `human` block: persistent user profile
+- `persona` block: agent's self-model
+- Custom blocks: project state, preferences, ongoing tasks
+
+---
+
+## 10. External Memory Stores
+
+### SQLite for Structured State
+
+```python
+import sqlite3
+from dataclasses import dataclass
+
+@dataclass
+class AgentStateRecord:
+    session_id: str
+    task: str
+    status: str
+    files_modified: list[str]
+    key_decisions: list[str]
+    last_updated: float
+
+class SQLiteAgentMemory:
+    def __init__(self, db_path: str = "agent_memory.db"):
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._init_schema()
+    
+    def _init_schema(self):
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                task TEXT,
+                status TEXT,
+                files_modified TEXT,  -- JSON array
+                key_decisions TEXT,   -- JSON array
+                last_updated REAL
+            )
+        """)
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS tool_calls (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT,
+                turn INTEGER,
+                tool_name TEXT,
+                input TEXT,
+                output TEXT,
+                timestamp REAL,
+                FOREIGN KEY (session_id) REFERENCES sessions(id)
+            )
+        """)
+        self.conn.commit()
+```
+
+Devika (an open-source Devin alternative) uses SQLite + embeddings this way, storing structured plans, execution logs, and web research results persistently.
+
+### Redis for Fast Cross-Agent State
+
+When multiple agents share state and need low-latency access:
 
 ```python
 import redis
-from redis.commands.search.field import VectorField, TextField
+import json
 
-# Store conversation history
-r = redis.Redis()
-r.lpush("agent:conversation", json.dumps({"role": "assistant", "content": "..."}))
-
-# Store as vector for semantic search
-r.hset(f"memory:{id}", mapping={
-    "content": memory_text,
-    "embedding": serialize_vector(embedding),
-    "timestamp": time.time(),
-    "type": "episodic"
-})
-```
-
----
-
-## Memory Curation and Maintenance
-
-Raw memory accumulates noise. Effective memory systems include **curation** mechanisms:
-
-### Automatic Curation Patterns
-
-1. **Recency weighting**: Decay importance of old memories
-2. **Contradiction resolution**: When new fact contradicts old, update
-3. **Deduplication**: Remove near-identical memories
-4. **Consolidation**: Merge related episodic memories into semantic summaries
-
-### Manual Curation in MEMORY.md Systems
-
-Best practice: periodically review and edit memory files:
-```markdown
-# After 2 weeks, remove:
-- Temporary debugging notes
-- Outdated dependency information
-- Solved problems no longer relevant
-
-# Retain and promote:
-- Architecture decisions with rationale
-- Non-obvious gotchas and workarounds  
-- Learned preferences about the codebase
-```
-
-### The Forgetting Curve
-
-Human memory theory: less-reinforced memories fade. AI agents can implement a similar curve:
-
-```python
-def should_retain(memory, current_time):
-    age_days = (current_time - memory.timestamp).days
-    access_count = memory.access_count
+class AgentSharedState:
+    def __init__(self):
+        self.redis = redis.Redis(host='localhost', port=6379, decode_responses=True)
     
-    # Ebbinghaus-inspired retention formula
-    retention = math.exp(-age_days / (access_count * 10 + 1))
+    def publish_result(self, agent_id: str, task_id: str, result: dict):
+        key = f"agent:{agent_id}:task:{task_id}"
+        self.redis.setex(key, 3600, json.dumps(result))  # 1h TTL
+        self.redis.publish(f"task_complete:{task_id}", agent_id)
     
-    return retention > 0.1  # Forget memories below 10% retention
+    def wait_for_results(self, task_ids: list[str], timeout: int = 300) -> dict:
+        pubsub = self.redis.pubsub()
+        pubsub.subscribe(*[f"task_complete:{tid}" for tid in task_ids])
+        results = {}
+        for message in pubsub.listen():
+            if message["type"] == "message":
+                task_id = message["channel"].split(":")[1]
+                # Retrieve the actual result
+                results[task_id] = self._get_result(task_id)
+        return results
 ```
 
 ---
 
-## Practical Memory Patterns by Agent Type
+## 11. Memory in Practice: Patterns Table
 
-### Short-Session Coding Agent (< 30 min)
-
-**What's needed:**
-- Task description in context
-- Relevant CLAUDE.md settings
-- Key files loaded on demand
-
-**What's NOT needed:**
-- Episodic memory (session is too short for accumulation)
-- Vector stores (overhead not justified)
-
-### Long-Session Coding Agent (hours)
-
-**What's needed:**
-- Active checkpointing (every 30-60 minutes)
-- Compact progress summaries in MEMORY.md
-- Git commits as episodic log
-- Vector retrieval for large codebase navigation
-
-### Multi-Day Coding Agent
-
-**What's needed:**
-- Full episodic store with semantic search
-- Curated semantic memory (key decisions, conventions)
-- Procedural runbooks for common tasks
-- Daily summary files (memory/YYYY-MM-DD.md)
-- MEMORY.md with distilled long-term learnings
-
----
-
-## Comparison: Memory Approaches
-
-| Approach | Setup Cost | Token Cost | Recall Quality | Maintainability |
-|----------|------------|------------|----------------|-----------------|
-| CLAUDE.md static file | Low | Fixed | Perfect (always loaded) | Manual |
-| MEMORY.md dynamic file | Low | Variable | Good | Semi-manual |
-| Vector store (Chroma) | Medium | Retrieval overhead | Semantic match | Automatic |
-| Database (PostgreSQL) | High | Low (filtered) | Exact + semantic | Automatic |
-| Git log as memory | Near-zero | Low | Limited (needs parsing) | Automatic |
-| Mem0 managed | Low | API calls | Good | Automatic |
-
----
-
-## Emerging Patterns (2025-2026)
-
-### Neural Memory Banks
-
-Research is exploring integrating learned memory directly into model weights via fine-tuning on agent experiences. Less practical currently but promising for specialized agents.
-
-### Hierarchical Episodic-Semantic Memory
-
-Automatic promotion of episodic memories to semantic facts:
-1. Record specific event (episodic): "Using asyncio.gather with error handling caused issues on 2025-03-01"
-2. Observe pattern (3+ times): "asyncio.gather fails silently in this codebase"
-3. Promote to semantic fact: "Use asyncio.wait instead of asyncio.gather for error handling"
-
-### Multi-Agent Shared Memory
-
-When agent swarms work on the same codebase, shared memory stores coordination:
-- Which agent is working on which module
-- Discoveries about the codebase shared across all agents
-- Conflict detection (two agents modifying same file)
+| Scenario | Memory Type | Storage | Retrieval |
+|---------|------------|---------|----------|
+| User preferences | Semantic | CLAUDE.md / memory files | File read at session start |
+| Recent code decisions | Episodic | git log / JSONL | Summarize last N commits |
+| Project architecture | Semantic | CLAUDE.md sections | Load on demand |
+| Test failure history | Episodic | SQLite / JSONL | Query by test name |
+| Past bug patterns | Semantic | Vector store | Embed bug description, k-NN search |
+| Active task state | Working | Context window | Direct (it's there) |
+| Long-term user notes | Episodic + Semantic | Hybrid (files + vector) | Semantic search over files |
 
 ---
 
 ## Sources
 
-- TigerData on AI agent memory: https://www.tigerdata.com/learn/building-ai-agents-with-persistent-memory-a-unified-database-approach
-- Redis agent memory: https://redis.io/blog/build-smarter-ai-agents-manage-short-term-and-long-term-memory-with-redis/
-- Oracle developer blog on agent memory: https://blogs.oracle.com/developers/agent-memory-why-your-ai-has-amnesia-and-how-to-fix-it
-- MachineLearningMastery long-term memory: https://machinelearningmastery.com/beyond-short-term-memory-the-3-types-of-long-term-memory-ai-agents-need/
-- Reddit coding agent memory system: https://www.reddit.com/r/ClaudeCode/comments/1r1w397/what_i_learned_building_a_memory_system_for_my_coding_agent/
-- Claude Code memory docs: https://code.claude.com/docs/en/memory
-- Claude Code undocumented memory: https://www.reddit.com/r/ClaudeAI/comments/1qw9hr4/claude_code_has_an_undocumented_persistent_memory/
-- Claude Code memory feature request: https://github.com/anthropics/claude-code/issues/14227
+- Anthropic: Memory tool — https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool
+- Anthropic Engineering: Effective Context Engineering — https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+- Letta (MemGPT) GitHub — https://github.com/letta-ai/letta
+- CrewAI Memory docs — https://docs.crewai.com/concepts/memory
+- Introl: Claude Code CLI Reference — https://introl.com/blog/claude-code-cli-comprehensive-guide-2025
+- arXiv: AI Agentic Programming Survey (2508.11126) — https://arxiv.org/html/2508.11126v1
+- MIT Missing Semester: Agentic Coding — https://missing.csail.mit.edu/2026/agentic-coding/
