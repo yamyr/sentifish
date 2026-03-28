@@ -149,7 +149,8 @@ class TinyfishProvider(SearchProvider):
         start = time.perf_counter()
         results: list[SearchResult] = []
 
-        async with httpx.AsyncClient(timeout=settings.tinyfish_timeout) as client:
+        timeout = httpx.Timeout(settings.tinyfish_timeout, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream(
                 "POST",
                 "https://agent.tinyfish.ai/v1/automation/run-sse",
@@ -175,8 +176,15 @@ class TinyfishProvider(SearchProvider):
                         try:
                             event = json.loads(data_line)
                         except json.JSONDecodeError:
+                            logger.debug("TinyFish non-JSON SSE: %.200s", data_line)
                             continue
-                        if event.get("type") == "COMPLETE":
+                        event_type = event.get("type", "")
+                        logger.info(
+                            "TinyFish SSE event: type=%s keys=%s",
+                            event_type,
+                            list(event.keys()),
+                        )
+                        if event_type in ("COMPLETE", "complete", "COMPLETED"):
                             results = _parse_tinyfish_results(event, top_k)
 
         latency = (time.perf_counter() - start) * 1000
