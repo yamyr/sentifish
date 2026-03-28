@@ -164,8 +164,8 @@ logger = logging.getLogger(__name__)
 class TinyfishProvider(SearchProvider):
     """TinyFish web agent provider.
 
-    Sends a browser automation task to Google via TinyFish SSE API,
-    instructing it to extract search results as structured data.
+    Uses the synchronous /v1/automation/run endpoint to drive a real browser
+    on DuckDuckGo and extract search results as structured data.
     """
 
     name = "tinyfish"
@@ -178,45 +178,32 @@ class TinyfishProvider(SearchProvider):
         )
 
         start = time.perf_counter()
-        results: list[SearchResult] = []
-        deadline = start + settings.tinyfish_timeout
-
         timeout = httpx.Timeout(settings.tinyfish_timeout, connect=10.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
-                "POST",
-                "https://agent.tinyfish.ai/v1/automation/run-sse",
+            resp = await client.post(
+                "https://agent.tinyfish.ai/v1/automation/run",
                 json={"url": search_url, "goal": goal},
                 headers={
                     "X-API-Key": settings.tinyfish_api_key,
                     "Content-Type": "application/json",
                 },
-            ) as stream:
-                stream.raise_for_status()
-                buffer = ""
-                async for chunk in stream.aiter_text():
-                    if time.perf_counter() > deadline:
-                        logger.warning("TinyFish wall-clock timeout for %r", query)
-                        break
-                    buffer += chunk
-                    while "\n\n" in buffer:
-                        event_str, buffer = buffer.split("\n\n", 1)
-                        data_line = ""
-                        for line in event_str.split("\n"):
-                            if line.startswith("data: "):
-                                data_line = line[6:]
-                        if not data_line:
-                            continue
-                        try:
-                            event = json.loads(data_line)
-                        except json.JSONDecodeError:
-                            continue
-                        event_type = event.get("type", "").upper()
-                        logger.info("TinyFish SSE: type=%s", event_type)
-                        if event_type in ("COMPLETE", "COMPLETED"):
-                            results = _parse_tinyfish_results(event, top_k)
+            )
+            resp.raise_for_status()
 
         latency = (time.perf_counter() - start) * 1000
+        data = resp.json()
+        logger.info(
+            "TinyFish sync: status=%s keys=%s",
+            data.get("status"),
+            list(data.keys()),
+        )
+
+        if data.get("status") != "COMPLETED":
+            error_msg = (data.get("error") or {}).get("message", "unknown")
+            logger.warning("TinyFish run failed: status=%s error=%s", data.get("status"), error_msg)
+            return [], latency
+
+        results = _parse_tinyfish_results(data, top_k)
         return results, latency
 
 
