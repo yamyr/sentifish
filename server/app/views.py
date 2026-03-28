@@ -106,27 +106,58 @@ def get_run_summary(run_id: str):
 
 @router.get("/runs/{run_id}/narration/text")
 def get_narration_text(run_id: str):
-    """Generate spoken-word narration text for an eval run."""
+    """Return narration text for an eval run (cached after first generation)."""
+    # Serve from cache if available
+    cached = narrator.get_cached_text(run_id)
+    if cached is not None:
+        return {"text": cached, "cached": True}
+
     run = runner.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id!r}")
     narration_text = narrator.generate_narration(run)
-    return {"text": narration_text}
+
+    # Only cache completed runs (in-progress narrations may change)
+    if run.status == "completed":
+        narrator.save_cached_text(run_id, narration_text)
+
+    return {"text": narration_text, "cached": False}
 
 
 @router.get("/runs/{run_id}/narration/audio")
 async def get_narration_audio(run_id: str):
-    """Generate narration audio (MP3) for an eval run via ElevenLabs TTS."""
+    """Return narration audio (MP3) for an eval run (cached after first synthesis)."""
     if not settings.elevenlabs_api_key:
         raise HTTPException(
             status_code=503,
             detail="ElevenLabs API key not configured",
         )
+
+    # Serve from cache if available
+    cached_audio = narrator.get_cached_audio(run_id)
+    if cached_audio is not None:
+        return StreamingResponse(
+            iter([cached_audio]),
+            media_type="audio/mpeg",
+            headers={"Content-Disposition": "inline; filename=narration.mp3"},
+        )
+
     run = runner.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id!r}")
-    narration_text = narrator.generate_narration(run)
+
+    # Generate text (use cached text if available)
+    narration_text = narrator.get_cached_text(run_id)
+    if narration_text is None:
+        narration_text = narrator.generate_narration(run)
+        if run.status == "completed":
+            narrator.save_cached_text(run_id, narration_text)
+
+    # Synthesize and cache audio
     audio_bytes = await narrator.synthesize_speech(narration_text)
+    if run.status == "completed":
+        narrator.save_cached_audio(run_id, audio_bytes)
+
     return StreamingResponse(
         iter([audio_bytes]),
         media_type="audio/mpeg",
