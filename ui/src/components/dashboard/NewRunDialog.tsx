@@ -98,9 +98,12 @@ export default function NewRunDialog({ open, onOpenChange }: NewRunDialogProps) 
                   <SelectValue placeholder="Select a dataset" />
                 </SelectTrigger>
                 <SelectContent>
-                  {datasets?.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
+                  {datasets?.map((ds) => (
+                    <SelectItem key={ds.name} value={ds.name}>
+                      {ds.name}
+                      {ds.description && (
+                        <span className="ml-2 text-muted-foreground">— {ds.description}</span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
