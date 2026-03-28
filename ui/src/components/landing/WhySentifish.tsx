@@ -31,21 +31,24 @@ const reasons = [
 const containerVariants = {
   hidden: {},
   visible: {
-    transition: { staggerChildren: 0.1 },
+    transition: { staggerChildren: 0.15 },
   },
 };
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 24 },
+  hidden: (i: number) => ({
+    opacity: 0,
+    x: i % 2 === 0 ? -30 : 30,
+  }),
   visible: {
     opacity: 1,
-    y: 0,
+    x: 0,
     transition: { duration: 0.5, ease: "easeOut" as const },
   },
 };
 
 const WhySentifish = () => (
-  <section id="why" className="bg-gradient-to-br from-secondary/50 to-secondary/30 py-24">
+  <section id="why" className="overflow-x-hidden bg-gradient-to-br from-secondary/50 to-secondary/30 py-24">
     <div className="mx-auto max-w-6xl px-6">
       {/* Section header */}
       <motion.div
@@ -75,9 +78,10 @@ const WhySentifish = () => (
         viewport={{ once: true, margin: "-60px" }}
         className="grid gap-6 sm:grid-cols-2"
       >
-        {reasons.map(({ title, description, Icon }) => (
+        {reasons.map(({ title, description, Icon }, index) => (
           <motion.div
             key={title}
+            custom={index}
             variants={cardVariants}
             className="gradient-border flex gap-5 rounded-2xl border border-border bg-card p-6 hover:shadow-xl hover:shadow-brand-indigo/8 hover:-translate-y-0.5 transition-all duration-300"
           >

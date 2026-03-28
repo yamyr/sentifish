@@ -77,14 +77,14 @@ const HowItWorks = () => {
   const current = steps[activeTab];
 
   return (
-    <section id="how-it-works" className="bg-secondary/50 py-24">
+    <section id="how-it-works" className="overflow-x-hidden bg-secondary/50 py-24">
       <div className="mx-auto max-w-6xl px-6">
         {/* Section header */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.5 }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
           className="mb-14 text-center"
         >
           <p className="font-mono-brand text-[11px] uppercase tracking-[0.2em] text-brand-cyan">
@@ -141,7 +141,14 @@ const HowItWorks = () => {
           {/* GIF display area */}
           <div className="mx-auto mt-8 max-w-4xl">
             {/* Browser chrome frame */}
-            <div className="glow-indigo overflow-hidden rounded-2xl border border-border bg-card">
+            <motion.div
+              initial={{ rotateX: 2 }}
+              whileInView={{ rotateX: 0 }}
+              viewport={{ once: true }}
+              transition={{ type: "spring", stiffness: 80, damping: 20, delay: 0.2 }}
+              style={{ perspective: "1200px" }}
+              className="glow-indigo overflow-hidden rounded-2xl border border-border bg-card"
+            >
               {/* Top bar */}
               <div className="flex items-center gap-2 border-b border-border px-4 py-3">
                 <span className="h-3 w-3 rounded-full bg-rose-400/60" />
@@ -165,7 +172,7 @@ const HowItWorks = () => {
                   />
                 </AnimatePresence>
               </div>
-            </div>
+            </motion.div>
 
             {/* Description */}
             <p className="mx-auto mt-6 max-w-xl text-center text-muted-foreground">

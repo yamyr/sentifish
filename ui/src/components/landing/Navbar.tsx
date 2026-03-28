@@ -15,6 +15,114 @@ const SECTION_IDS = NAV_LINKS.map((l) => l.href.slice(1));
 
 const SCROLL_THRESHOLD = 100;
 
+const JOURNEY_SECTIONS = [
+  { id: "hero", label: "Home" },
+  { id: "providers", label: "Benchmarks" },
+  { id: "how-it-works", label: "Workflow" },
+  { id: "metrics", label: "Metrics" },
+  { id: "why", label: "Why Sentifish" },
+  { id: "roadmap", label: "Roadmap" },
+];
+
+/* ---------- Journey Progress Dots (Desktop) ---------- */
+const JourneyProgress = ({
+  activeSection,
+  scrolled,
+}: {
+  activeSection: string;
+  scrolled: boolean;
+}) => {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  const activeIndex = JOURNEY_SECTIONS.findIndex(
+    (s) => s.id === activeSection,
+  );
+  // Treat hero as active when nothing else is
+  const resolvedIndex = activeIndex === -1 ? 0 : activeIndex;
+
+  const handleClick = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  return (
+    <motion.div
+      className="fixed right-6 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-3 md:flex"
+      animate={{ opacity: scrolled ? 1 : 0.3 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Vertical connecting line (background) */}
+      <div className="pointer-events-none absolute left-1/2 top-0 bottom-0 -translate-x-1/2">
+        {/* Track line */}
+        <div className="h-full w-px bg-white/10" />
+        {/* Progress fill */}
+        <motion.div
+          className="absolute top-0 left-0 w-px bg-gradient-to-b from-brand-cyan to-brand-indigo"
+          animate={{
+            height: `${(resolvedIndex / Math.max(JOURNEY_SECTIONS.length - 1, 1)) * 100}%`,
+          }}
+          transition={{ type: "spring", stiffness: 200, damping: 25 }}
+        />
+      </div>
+
+      {JOURNEY_SECTIONS.map((section, i) => {
+        const isActive = i === resolvedIndex;
+        return (
+          <button
+            key={section.id}
+            type="button"
+            aria-label={`Scroll to ${section.label}`}
+            onClick={() => handleClick(section.id)}
+            onMouseEnter={() => setHoveredId(section.id)}
+            onMouseLeave={() => setHoveredId(null)}
+            className="relative z-10 flex items-center justify-center p-1"
+          >
+            {/* Dot */}
+            <motion.span
+              className={`block rounded-full transition-colors duration-200 ${
+                isActive
+                  ? "bg-brand-cyan shadow-sm shadow-brand-cyan/40"
+                  : "bg-white/25 hover:bg-white/40"
+              }`}
+              animate={{
+                width: isActive ? 12 : 8,
+                height: isActive ? 12 : 8,
+              }}
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+            />
+
+            {/* Animated layout indicator ring */}
+            {isActive && (
+              <motion.span
+                layoutId="journey-dot-indicator"
+                className="absolute inset-0 m-auto h-5 w-5 rounded-full ring-2 ring-brand-cyan/50"
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+              />
+            )}
+
+            {/* Tooltip */}
+            <AnimatePresence>
+              {hoveredId === section.id && (
+                <motion.span
+                  initial={{ opacity: 0, x: 4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 4 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-full mr-3 whitespace-nowrap rounded-lg bg-brand-navy/90 px-3 py-1.5 text-xs text-white backdrop-blur-sm"
+                >
+                  {section.label}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
+        );
+      })}
+    </motion.div>
+  );
+};
+
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -84,6 +192,7 @@ const Navbar = () => {
   const mutedText = scrolled ? "text-muted-foreground" : "text-white/60";
 
   return (
+    <>
     <header
       className={`sticky top-0 z-50 w-full transition-colors duration-300 ${
         scrolled
@@ -242,6 +351,9 @@ const Navbar = () => {
         <div className="h-px bg-gradient-to-r from-transparent via-brand-cyan/30 to-transparent" />
       )}
     </header>
+
+    <JourneyProgress activeSection={activeSection} scrolled={scrolled} />
+    </>
   );
 };
 
