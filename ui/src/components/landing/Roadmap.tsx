@@ -1,7 +1,6 @@
-"use client";
-
 import { motion } from "framer-motion";
 import { Brain, Bot, BellRing, Sparkles, Swords, type LucideIcon } from "lucide-react";
+import NeuralBackground from "./NeuralBackground";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -139,9 +138,17 @@ const MilestoneCard = ({
 const Roadmap = () => (
   <section
     id="roadmap"
-    className="bg-gradient-to-b from-brand-navy via-brand-navy/95 to-brand-navy py-24"
+    className="relative overflow-hidden bg-gradient-to-b from-brand-navy via-brand-navy/95 to-brand-navy py-24"
   >
-    <div className="mx-auto max-w-6xl px-6">
+    {/* Neural network background */}
+    <NeuralBackground
+      nodeCount={50}
+      connectionDistance={140}
+      opacity={0.4}
+      secondaryColor="130, 120, 255"
+    />
+
+    <div className="relative mx-auto max-w-6xl px-6">
       {/* ---- Section header ---- */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}

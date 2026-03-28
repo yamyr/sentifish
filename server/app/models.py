@@ -50,6 +50,7 @@ class QueryScore(BaseModel):
     ndcg_at_k: float = 0.0
     mrr: float = 0.0
     map_at_k: float = 0.0
+    content_depth: float = 0.0
     latency_ms: float = 0.0
     result_count: int = 0
     results: list[SearchResult] = Field(default_factory=list)
@@ -93,6 +94,7 @@ class EvalRun(BaseModel):
                 "mean_ndcg_at_k": sum(s.ndcg_at_k for s in query_scores) / n,
                 "mean_mrr": sum(s.mrr for s in query_scores) / n,
                 "mean_map_at_k": sum(s.map_at_k for s in query_scores) / n,
+                "mean_content_depth": sum(s.content_depth for s in query_scores) / n,
                 "mean_latency_ms": sum(s.latency_ms for s in query_scores) / n,
                 "total_queries": n,
             }

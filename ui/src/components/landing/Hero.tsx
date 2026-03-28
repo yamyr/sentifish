@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Fish, ExternalLink, ArrowRight, Star } from "lucide-react";
+import NeuralBackground from "./NeuralBackground";
 
 const Hero = () => {
   const [starCount, setStarCount] = useState<number | null>(null);
@@ -27,9 +28,16 @@ const Hero = () => {
       id="hero"
       className="relative w-full overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-indigo"
     >
+      {/* Neural network background */}
+      <NeuralBackground
+        nodeCount={70}
+        connectionDistance={150}
+        opacity={0.6}
+      />
+
       {/* Subtle grid overlay */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.04]"
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{
           backgroundImage:
             "linear-gradient(hsl(var(--brand-cyan)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--brand-cyan)) 1px, transparent 1px)",

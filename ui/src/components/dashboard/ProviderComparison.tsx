@@ -23,25 +23,26 @@ const PROVIDER_TEXT_COLORS: Record<string, string> = {
 };
 
 interface ProviderMetrics {
-  precision: number;
-  recall: number;
   ndcg: number;
-  mrr: number;
   map: number;
+  recall: number;
+  contentDepth: number;
   latency: number;
 }
 
 const MOCK_DATA: Record<string, ProviderMetrics> = {
-  brave: { precision: 0.82, recall: 0.76, ndcg: 0.84, mrr: 0.88, map: 0.79, latency: 320 },
-  serper: { precision: 0.79, recall: 0.81, ndcg: 0.80, mrr: 0.85, map: 0.76, latency: 180 },
-  tavily: { precision: 0.91, recall: 0.73, ndcg: 0.89, mrr: 0.92, map: 0.84, latency: 440 },
-  exa: { precision: 0.88, recall: 0.80, ndcg: 0.87, mrr: 0.90, map: 0.82, latency: 350 },
+  brave: { ndcg: 0.84, map: 0.79, recall: 0.76, contentDepth: 0.35, latency: 320 },
+  serper: { ndcg: 0.80, map: 0.76, recall: 0.81, contentDepth: 0.30, latency: 180 },
+  tavily: { ndcg: 0.89, map: 0.84, recall: 0.73, contentDepth: 0.55, latency: 440 },
+  exa: { ndcg: 0.87, map: 0.82, recall: 0.80, contentDepth: 0.60, latency: 350 },
+  tinyfish: { ndcg: 0.72, map: 0.65, recall: 0.60, contentDepth: 0.92, latency: 25000 },
 };
 
-const METRICS: { key: keyof Omit<ProviderMetrics, "latency">; label: string }[] = [
-  { key: "ndcg", label: "NDCG@K" },
-  { key: "map", label: "MAP@K" },
-  { key: "recall", label: "Recall@K" },
+const BAR_METRICS: { key: keyof ProviderMetrics; label: string }[] = [
+  { key: "ndcg", label: "Ranking Quality — NDCG@K" },
+  { key: "map", label: "Consistent Precision — MAP@K" },
+  { key: "recall", label: "Coverage Breadth — Recall@K" },
+  { key: "contentDepth", label: "Content Depth" },
 ];
 
 export default function ProviderComparison() {
@@ -62,11 +63,10 @@ export default function ProviderComparison() {
     for (const score of latestRun.scores ?? []) {
       if (!byProvider[score.provider]) {
         byProvider[score.provider] = {
-          precision: 0,
-          recall: 0,
           ndcg: 0,
-          mrr: 0,
           map: 0,
+          recall: 0,
+          contentDepth: 0,
           latency: 0,
         };
       }
@@ -77,21 +77,19 @@ export default function ProviderComparison() {
     for (const score of latestRun.scores ?? []) {
       const p = score.provider;
       counts[p] = (counts[p] ?? 0) + 1;
-      byProvider[p].precision += score.precision_at_k;
-      byProvider[p].recall += score.recall_at_k;
       byProvider[p].ndcg += score.ndcg_at_k;
-      byProvider[p].mrr += score.mrr;
       byProvider[p].map += score.map_at_k ?? 0;
+      byProvider[p].recall += score.recall_at_k;
+      byProvider[p].contentDepth += score.content_depth ?? 0;
       byProvider[p].latency += score.latency_ms;
     }
 
     for (const p of Object.keys(byProvider)) {
       const n = counts[p];
-      byProvider[p].precision /= n;
-      byProvider[p].recall /= n;
       byProvider[p].ndcg /= n;
-      byProvider[p].mrr /= n;
       byProvider[p].map /= n;
+      byProvider[p].recall /= n;
+      byProvider[p].contentDepth /= n;
       byProvider[p].latency /= n;
     }
 
@@ -137,7 +135,7 @@ export default function ProviderComparison() {
 
           {/* Metric bars */}
           <div className="space-y-5">
-            {METRICS.map(({ key, label }) => (
+            {BAR_METRICS.map(({ key, label }) => (
               <div key={key}>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {label}
@@ -169,6 +167,32 @@ export default function ProviderComparison() {
             ))}
           </div>
 
+          {/* Latency grid */}
+          <div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Response Speed — Latency
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {providers.map((p) => {
+                const ms = metrics[p].latency;
+                const display = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
+                return (
+                  <motion.div
+                    key={p}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.2 }}
+                    className="rounded-lg border bg-secondary/50 p-3 text-center"
+                  >
+                    <p className={`font-mono-brand text-lg font-bold ${PROVIDER_TEXT_COLORS[p] ?? "text-foreground"}`}>
+                      {display}
+                    </p>
+                    <p className="text-xs text-muted-foreground capitalize">{p}</p>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
         </CardContent>
       </Card>
     </motion.div>
