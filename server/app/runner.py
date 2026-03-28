@@ -27,23 +27,42 @@ def list_runs() -> list[EvalRun]:
     return sorted(_runs.values(), key=lambda r: r.created_at, reverse=True)
 
 
+_MAX_RETRIES = 3
+_RETRY_BACKOFF = [1.0, 3.0, 5.0]
+
+
 async def _eval_query(
     provider: SearchProvider,
     query: str,
     relevant_urls: set[str],
     top_k: int,
 ) -> QueryScore:
-    """Run a single query against a provider and score it."""
-    try:
-        results, latency_ms = await provider.search(query, top_k)
-    except Exception as exc:
-        logger.warning("Provider %s failed on %r: %s", provider.name, query, exc)
-        return QueryScore(
-            query=query,
-            provider=provider.name,
-            latency_ms=0.0,
-            result_count=0,
-        )
+    """Run a single query against a provider and score it (with retry on 429)."""
+    for attempt in range(_MAX_RETRIES):
+        try:
+            results, latency_ms = await provider.search(query, top_k)
+            break
+        except Exception as exc:
+            is_rate_limit = "429" in str(exc) or "Too Many" in str(exc)
+            if is_rate_limit and attempt < _MAX_RETRIES - 1:
+                wait = _RETRY_BACKOFF[attempt]
+                logger.info(
+                    "Provider %s rate-limited on %r, retrying in %.0fs (attempt %d/%d)",
+                    provider.name,
+                    query,
+                    wait,
+                    attempt + 1,
+                    _MAX_RETRIES,
+                )
+                await asyncio.sleep(wait)
+                continue
+            logger.warning("Provider %s failed on %r: %s", provider.name, query, exc)
+            return QueryScore(
+                query=query,
+                provider=provider.name,
+                latency_ms=0.0,
+                result_count=0,
+            )
 
     returned_urls = [r.url for r in results]
     scores = score_query(returned_urls, relevant_urls, top_k)
@@ -78,9 +97,13 @@ async def execute_run(dataset: Dataset, provider_names: list[str], top_k: int) -
         run.error = str(exc)
         return run
 
-    sem = asyncio.Semaphore(settings.max_concurrency)
+    # TinyFish runs real browser sessions — limit to 2 concurrent to avoid timeouts
+    _SLOW_PROVIDERS = {"tinyfish"}
+    sem_fast = asyncio.Semaphore(settings.max_concurrency)
+    sem_slow = asyncio.Semaphore(2)
 
     async def limited_eval(prov: SearchProvider, case_query: str, relevant: set[str]) -> QueryScore:
+        sem = sem_slow if prov.name in _SLOW_PROVIDERS else sem_fast
         async with sem:
             return await _eval_query(prov, case_query, relevant, top_k)
 
