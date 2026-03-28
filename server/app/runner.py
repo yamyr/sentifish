@@ -67,6 +67,11 @@ async def _eval_query(
     returned_urls = [r.url for r in results]
     scores = score_query(returned_urls, relevant_urls, top_k)
 
+    # Content depth: normalized average snippet length (0-1, capped at 500 chars)
+    snippet_lengths = [len(r.snippet) for r in results if r.snippet]
+    avg_snippet = sum(snippet_lengths) / len(snippet_lengths) if snippet_lengths else 0.0
+    content_depth = min(avg_snippet / 500.0, 1.0)
+
     return QueryScore(
         query=query,
         provider=provider.name,
@@ -75,6 +80,7 @@ async def _eval_query(
         ndcg_at_k=scores["ndcg_at_k"],
         mrr=scores["mrr"],
         map_at_k=scores["map_at_k"],
+        content_depth=content_depth,
         latency_ms=latency_ms,
         result_count=len(results),
         results=results,
