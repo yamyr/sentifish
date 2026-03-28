@@ -152,9 +152,11 @@ export default function RecentRuns() {
                       </div>
 
                       {/* Top K */}
-                      <span className="font-mono-brand text-xs text-muted-foreground shrink-0">
-                        k={run.top_k}
-                      </span>
+                      {run.top_k != null && (
+                        <span className="font-mono-brand text-xs text-muted-foreground shrink-0">
+                          k={run.top_k}
+                        </span>
+                      )}
 
                       {/* Time */}
                       <span className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground shrink-0">
@@ -171,7 +173,7 @@ export default function RecentRuns() {
                     </button>
 
                     {/* Expanded scores */}
-                    {isExpanded && run.scores.length > 0 && (
+                    {isExpanded && (run.scores?.length ?? 0) > 0 && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
@@ -210,9 +212,9 @@ export default function RecentRuns() {
                               ))}
                             </tbody>
                           </table>
-                          {run.scores.length > 20 && (
+                          {(run.scores?.length ?? 0) > 20 && (
                             <p className="mt-2 text-xs text-muted-foreground">
-                              Showing 20 of {run.scores.length} scores
+                              Showing 20 of {run.scores?.length} scores
                             </p>
                           )}
                         </div>
@@ -229,7 +231,7 @@ export default function RecentRuns() {
                       </motion.div>
                     )}
 
-                    {isExpanded && run.scores.length === 0 && (
+                    {isExpanded && (run.scores?.length ?? 0) === 0 && (
                       <div className="border-t px-3 py-4 text-center text-xs text-muted-foreground">
                         {run.status === "pending" || run.status === "running"
                           ? "Scores will appear when the run completes."

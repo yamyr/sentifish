@@ -22,7 +22,7 @@ export default function StatCards() {
 
   const stats = useMemo(() => {
     const completedRuns = runs?.filter((r) => r.status === "completed") ?? [];
-    const allScores = completedRuns.flatMap((r) => r.scores);
+    const allScores = completedRuns.flatMap((r) => r.scores ?? []);
 
     // Total queries
     const totalQueries = allScores.length;
