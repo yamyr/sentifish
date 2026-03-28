@@ -32,6 +32,7 @@ export interface QueryScore {
   recall_at_k: number;
   ndcg_at_k: number;
   mrr: number;
+  map_at_k: number;
   latency_ms: number;
   result_count: number;
   results: SearchResult[];

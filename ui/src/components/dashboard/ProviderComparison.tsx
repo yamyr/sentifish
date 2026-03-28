@@ -7,14 +7,18 @@ import { BarChart3 } from "lucide-react";
 const PROVIDER_COLORS: Record<string, string> = {
   brave: "bg-brand-indigo",
   serper: "bg-brand-cyan",
+  serpapi: "bg-brand-cyan",
   tavily: "bg-warning",
+  exa: "bg-danger",
   tinyfish: "bg-success",
 };
 
 const PROVIDER_TEXT_COLORS: Record<string, string> = {
   brave: "text-brand-indigo",
   serper: "text-brand-cyan",
+  serpapi: "text-brand-cyan",
   tavily: "text-warning",
+  exa: "text-danger",
   tinyfish: "text-success",
 };
 
@@ -23,14 +27,15 @@ interface ProviderMetrics {
   recall: number;
   ndcg: number;
   mrr: number;
+  map: number;
   latency: number;
 }
 
 const MOCK_DATA: Record<string, ProviderMetrics> = {
-  brave: { precision: 0.82, recall: 0.76, ndcg: 0.84, mrr: 0.88, latency: 320 },
-  serper: { precision: 0.79, recall: 0.81, ndcg: 0.80, mrr: 0.85, latency: 180 },
-  tavily: { precision: 0.91, recall: 0.73, ndcg: 0.89, mrr: 0.92, latency: 440 },
-  tinyfish: { precision: 0.87, recall: 0.85, ndcg: 0.88, mrr: 0.90, latency: 680 },
+  brave: { precision: 0.82, recall: 0.76, ndcg: 0.84, mrr: 0.88, map: 0.79, latency: 320 },
+  serper: { precision: 0.79, recall: 0.81, ndcg: 0.80, mrr: 0.85, map: 0.76, latency: 180 },
+  tavily: { precision: 0.91, recall: 0.73, ndcg: 0.89, mrr: 0.92, map: 0.84, latency: 440 },
+  exa: { precision: 0.88, recall: 0.80, ndcg: 0.87, mrr: 0.90, map: 0.82, latency: 350 },
 };
 
 const METRICS: { key: keyof Omit<ProviderMetrics, "latency">; label: string }[] = [
@@ -38,6 +43,7 @@ const METRICS: { key: keyof Omit<ProviderMetrics, "latency">; label: string }[] 
   { key: "recall", label: "R@K" },
   { key: "ndcg", label: "NDCG" },
   { key: "mrr", label: "MRR" },
+  { key: "map", label: "MAP" },
 ];
 
 export default function ProviderComparison() {
@@ -62,6 +68,7 @@ export default function ProviderComparison() {
           recall: 0,
           ndcg: 0,
           mrr: 0,
+          map: 0,
           latency: 0,
         };
       }
@@ -76,6 +83,7 @@ export default function ProviderComparison() {
       byProvider[p].recall += score.recall_at_k;
       byProvider[p].ndcg += score.ndcg_at_k;
       byProvider[p].mrr += score.mrr;
+      byProvider[p].map += score.map_at_k ?? 0;
       byProvider[p].latency += score.latency_ms;
     }
 
@@ -85,6 +93,7 @@ export default function ProviderComparison() {
       byProvider[p].recall /= n;
       byProvider[p].ndcg /= n;
       byProvider[p].mrr /= n;
+      byProvider[p].map /= n;
       byProvider[p].latency /= n;
     }
 
