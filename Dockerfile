@@ -25,6 +25,10 @@ COPY server/datasets/ datasets/
 # Copy built frontend from Stage 1
 COPY --from=node-build /build/dist /app/static
 
+# Create results dir structure (Railway volume mounts over /app/results as root,
+# so we pre-create and set permissions before switching to non-root)
+RUN mkdir -p /app/results/narrations
+
 # Run as non-root user
 RUN useradd --create-home --shell /bin/bash appuser \
     && chown -R appuser:appuser /app
