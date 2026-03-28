@@ -175,7 +175,8 @@ export default function ProviderComparison() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {providers.map((p) => {
                 const ms = metrics[p].latency;
-                const display = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
+                const secs = ms / 1000;
+                const display = secs >= 10 ? `${secs.toFixed(0)}s` : `${secs.toFixed(2)}s`;
                 return (
                   <motion.div
                     key={p}
@@ -184,7 +185,7 @@ export default function ProviderComparison() {
                     transition={{ duration: 0.3, delay: 0.2 }}
                     className="rounded-lg border bg-secondary/50 p-3 text-center"
                   >
-                    <p className={`font-mono-brand text-lg font-bold ${PROVIDER_TEXT_COLORS[p] ?? "text-foreground"}`}>
+                    <p className={`font-mono-brand text-base font-bold ${PROVIDER_TEXT_COLORS[p] ?? "text-foreground"}`}>
                       {display}
                     </p>
                     <p className="text-xs text-muted-foreground capitalize">{p}</p>
