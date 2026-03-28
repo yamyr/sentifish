@@ -80,8 +80,8 @@ async def _eval_query(
     )
 
 
-async def execute_run(dataset: Dataset, provider_names: list[str], top_k: int) -> EvalRun:
-    """Execute a full evaluation run: all queries x all providers."""
+def create_run(dataset: Dataset, provider_names: list[str], top_k: int) -> EvalRun:
+    """Create a pending run and register it in the store."""
     run = EvalRun(
         dataset_name=dataset.name,
         providers=provider_names,
@@ -89,7 +89,13 @@ async def execute_run(dataset: Dataset, provider_names: list[str], top_k: int) -
         status=RunStatus.RUNNING,
     )
     _runs[run.id] = run
+    return run
 
+
+async def execute_run(
+    run: EvalRun, dataset: Dataset, provider_names: list[str], top_k: int
+) -> EvalRun:
+    """Execute a full evaluation run: all queries x all providers."""
     try:
         providers = [get_provider(name) for name in provider_names]
     except ValueError as exc:

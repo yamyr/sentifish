@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, HTTPException
 
 from . import datasets as ds
@@ -116,10 +118,6 @@ async def create_run(body: dict):
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
-    run = await runner.execute_run(dataset, provider_names, top_k)
-    return {
-        "id": run.id,
-        "status": run.status,
-        "error": run.error,
-        "summary": run.summary if run.status == "completed" else None,
-    }
+    run = runner.create_run(dataset, provider_names, top_k)
+    asyncio.create_task(runner.execute_run(run, dataset, provider_names, top_k))
+    return {"id": run.id, "status": run.status}

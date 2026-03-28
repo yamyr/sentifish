@@ -2,7 +2,7 @@ import pytest
 
 from app.models import Dataset, QueryCase, SearchResult
 from app.providers import MockProvider
-from app.runner import _eval_query, execute_run, _runs
+from app.runner import _eval_query, create_run, execute_run, _runs
 
 
 class TestEvalQuery:
@@ -62,7 +62,8 @@ class TestExecuteRun:
             ],
         )
 
-        run = await execute_run(dataset, ["mock"], top_k=2)
+        run = create_run(dataset, ["mock"], top_k=2)
+        run = await execute_run(run, dataset, ["mock"], top_k=2)
 
         assert run.status == "completed"
         assert run.dataset_name == "test_ds"
