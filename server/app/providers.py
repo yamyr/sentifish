@@ -7,8 +7,11 @@ response parsing.
 
 from __future__ import annotations
 
+import json
+import logging
 import time
 from abc import ABC, abstractmethod
+from urllib.parse import quote_plus
 
 import httpx
 
@@ -122,6 +125,109 @@ class TavilyProvider(SearchProvider):
         return results, latency
 
 
+logger = logging.getLogger(__name__)
+
+
+class TinyfishProvider(SearchProvider):
+    """TinyFish web agent provider.
+
+    Sends a browser automation task to Google via TinyFish SSE API,
+    instructing it to extract search results as structured data.
+    """
+
+    name = "tinyfish"
+
+    async def search(self, query: str, top_k: int = 10) -> tuple[list[SearchResult], float]:
+        search_url = f"https://www.google.com/search?q={quote_plus(query)}"
+        goal = (
+            f"Extract the top {top_k} organic search results from this Google search page. "
+            "For each result return a JSON array of objects with keys: "
+            '"url" (the link href), "title" (the link text), "snippet" (the description text). '
+            "Return ONLY the JSON array, no other text."
+        )
+
+        start = time.perf_counter()
+        results: list[SearchResult] = []
+
+        async with httpx.AsyncClient(timeout=settings.tinyfish_timeout) as client:
+            async with client.stream(
+                "POST",
+                "https://agent.tinyfish.ai/v1/automation/run-sse",
+                json={"url": search_url, "goal": goal},
+                headers={
+                    "X-API-Key": settings.tinyfish_api_key,
+                    "Content-Type": "application/json",
+                },
+            ) as stream:
+                stream.raise_for_status()
+                buffer = ""
+                async for chunk in stream.aiter_text():
+                    buffer += chunk
+                    # Parse SSE events from buffer
+                    while "\n\n" in buffer:
+                        event_str, buffer = buffer.split("\n\n", 1)
+                        data_line = ""
+                        for line in event_str.split("\n"):
+                            if line.startswith("data: "):
+                                data_line = line[6:]
+                        if not data_line:
+                            continue
+                        try:
+                            event = json.loads(data_line)
+                        except json.JSONDecodeError:
+                            continue
+                        if event.get("type") == "COMPLETE":
+                            results = _parse_tinyfish_results(event, top_k)
+
+        latency = (time.perf_counter() - start) * 1000
+        return results, latency
+
+
+def _parse_tinyfish_results(event: dict, top_k: int) -> list[SearchResult]:
+    """Extract SearchResult list from a TinyFish COMPLETE event."""
+    result_data = event.get("result")
+    if result_data is None:
+        return []
+
+    # result_data may be a JSON string or already parsed
+    if isinstance(result_data, str):
+        try:
+            result_data = json.loads(result_data)
+        except json.JSONDecodeError:
+            logger.warning("TinyFish returned unparseable result: %.200s", result_data)
+            return []
+
+    # Handle both list-of-dicts and dict-with-list
+    items: list[dict] = []
+    if isinstance(result_data, list):
+        items = result_data
+    elif isinstance(result_data, dict):
+        # Try common wrapper keys
+        for key in ("results", "data", "items", "organic"):
+            if isinstance(result_data.get(key), list):
+                items = result_data[key]
+                break
+        if not items:
+            items = [result_data]
+
+    results = []
+    for i, item in enumerate(items[:top_k]):
+        if not isinstance(item, dict):
+            continue
+        url = item.get("url") or item.get("link") or item.get("href") or ""
+        if not url:
+            continue
+        results.append(
+            SearchResult(
+                url=url,
+                title=item.get("title", ""),
+                snippet=item.get("snippet") or item.get("description") or "",
+                rank=i + 1,
+            )
+        )
+    return results
+
+
 class MockProvider(SearchProvider):
     """Deterministic mock provider for testing."""
 
@@ -141,12 +247,14 @@ PROVIDERS: dict[str, type[SearchProvider]] = {
     "brave": BraveProvider,
     "serper": SerperProvider,
     "tavily": TavilyProvider,
+    "tinyfish": TinyfishProvider,
 }
 
 _KEY_MAP: dict[str, str] = {
     "brave": "brave_api_key",
     "serper": "serper_api_key",
     "tavily": "tavily_api_key",
+    "tinyfish": "tinyfish_api_key",
 }
 
 

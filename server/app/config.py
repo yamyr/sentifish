@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     brave_api_key: str = ""
     serper_api_key: str = ""
     tavily_api_key: str = ""
+    tinyfish_api_key: str = ""
 
     # Results storage
     results_dir: str = "./results"
@@ -25,6 +26,7 @@ class Settings(BaseSettings):
     # Runner defaults
     default_top_k: int = Field(default=10, ge=1, le=100)
     request_timeout: float = Field(default=30.0, gt=0)
+    tinyfish_timeout: float = Field(default=90.0, gt=0)
     max_concurrency: int = Field(default=5, ge=1, le=50)
 
 
