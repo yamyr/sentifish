@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     elevenlabs_model_id: str = "eleven_multilingual_v2"
     elevenlabs_agent_id: str = "agent_6401kmsfvaceec8s2rzd2btgpbrw"
 
+    # OpenAI LLM-as-Judge
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+
     # Results storage
     results_dir: str = "./results"
 
