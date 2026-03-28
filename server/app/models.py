@@ -22,7 +22,7 @@ class SearchResult(BaseModel):
 class QueryCase(BaseModel):
     """A single evaluation case: a query with expected relevant URLs."""
 
-    query: str
+    query: str = Field(min_length=1)
     relevant_urls: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -45,13 +45,13 @@ class QueryScore(BaseModel):
 
     query: str
     provider: str
-    precision_at_k: float = 0.0
-    recall_at_k: float = 0.0
-    ndcg_at_k: float = 0.0
-    mrr: float = 0.0
-    map_at_k: float = 0.0
-    content_depth: float = 0.0
-    latency_ms: float = 0.0
+    precision_at_k: float = Field(default=0.0, ge=0.0, le=1.0)
+    recall_at_k: float = Field(default=0.0, ge=0.0, le=1.0)
+    ndcg_at_k: float = Field(default=0.0, ge=0.0, le=1.0)
+    mrr: float = Field(default=0.0, ge=0.0, le=1.0)
+    map_at_k: float = Field(default=0.0, ge=0.0, le=1.0)
+    content_depth: float = Field(default=0.0, ge=0.0, le=1.0)
+    latency_ms: float = Field(default=0.0, ge=0.0)
     result_count: int = 0
     results: list[SearchResult] = Field(default_factory=list)
 
@@ -69,7 +69,7 @@ class EvalRun(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     dataset_name: str
     providers: list[str]
-    top_k: int = 10
+    top_k: int = Field(default=10, ge=1)
     status: RunStatus = RunStatus.PENDING
     created_at: float = Field(default_factory=time.time)
     completed_at: float | None = None

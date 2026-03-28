@@ -31,6 +31,7 @@ export interface MultiEvalRunRequest {
   top_k?: number;
 }
 
+
 export interface QueryScore {
   query: string;
   provider: string;
