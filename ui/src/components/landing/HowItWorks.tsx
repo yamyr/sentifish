@@ -1,107 +1,191 @@
-import { motion } from "framer-motion";
-import { Database, Play, BarChart3 } from "lucide-react";
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const steps = [
   {
-    number: "01",
-    title: "Choose Dataset",
+    id: 0,
+    label: "01 Choose Dataset",
+    gif: "/gifs/05-dashboard.gif",
     description:
-      "Pick from curated query sets or create your own. Each dataset includes queries with known-relevant documents for precise scoring.",
-    Icon: Database,
+      "Pick from curated query sets or bring your own. Each includes queries with known-relevant documents.",
   },
   {
-    number: "02",
-    title: "Run Evaluation",
+    id: 1,
+    label: "02 Run Evaluation",
+    gif: "/gifs/02-race.gif",
     description:
-      "Query all providers simultaneously with the same inputs. Every request is timed, cached, and logged for reproducibility.",
-    Icon: Play,
+      "All providers race simultaneously on the same queries. Every request is timed and logged.",
   },
   {
-    number: "03",
-    title: "Compare Results",
+    id: 2,
+    label: "03 Compare Results",
+    gif: "/gifs/03-comparison.gif",
     description:
-      "See side-by-side metrics with interactive charts. Export data or drill into individual queries to understand where providers differ.",
-    Icon: BarChart3,
+      "Side-by-side metrics with interactive charts. Drill into individual queries to see where providers differ.",
   },
 ];
 
-const containerVariants = {
-  hidden: {},
-  visible: {
-    transition: { staggerChildren: 0.15 },
-  },
-};
+const INTERVAL_MS = 5000;
 
-const stepVariants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: "easeOut" as const },
-  },
-};
+const HowItWorks = () => {
+  const [activeTab, setActiveTab] = useState(0);
+  const [progressKey, setProgressKey] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-const HowItWorks = () => (
-  <section className="bg-secondary/50 py-24">
-    <div className="mx-auto max-w-6xl px-6">
-      {/* Section header */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-80px" }}
-        transition={{ duration: 0.5 }}
-        className="mb-14 text-center"
-      >
-        <p className="font-mono-brand text-[11px] uppercase tracking-[0.2em] text-brand-cyan">
-          Workflow
-        </p>
-        <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground sm:text-4xl">
-          Three Steps to Better Search
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-          From dataset to decision in minutes, not weeks.
-        </p>
-      </motion.div>
+  const clearTimer = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
 
-      {/* Steps */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-60px" }}
-        className="grid gap-8 md:grid-cols-3"
-      >
-        {steps.map(({ number, title, description, Icon }, idx) => (
-          <motion.div key={number} variants={stepVariants} className="relative">
-            {/* Connector line (hidden on last item and on mobile) */}
-            {idx < steps.length - 1 && (
-              <div className="pointer-events-none absolute right-0 top-10 hidden h-px w-8 translate-x-full bg-border md:block" />
-            )}
+  const startTimer = useCallback(() => {
+    clearTimer();
+    intervalRef.current = setInterval(() => {
+      setActiveTab((prev) => (prev + 1) % steps.length);
+      setProgressKey((k) => k + 1);
+    }, INTERVAL_MS);
+  }, [clearTimer]);
 
-            <div className="rounded-2xl border border-border bg-card p-8">
-              {/* Step number */}
-              <span className="font-mono-brand text-xs font-semibold text-brand-cyan">
-                {number}
-              </span>
+  // Start / restart auto-advance when not paused
+  useEffect(() => {
+    if (!paused) {
+      startTimer();
+    }
+    return clearTimer;
+  }, [paused, startTimer, clearTimer]);
 
-              {/* Icon */}
-              <div className="mt-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-indigo/10 ring-1 ring-brand-indigo/20">
-                <Icon className="h-5 w-5 text-brand-indigo" />
+  const handleTabClick = (id: number) => {
+    setActiveTab(id);
+    setProgressKey((k) => k + 1);
+    // Restart interval from this moment
+    if (!paused) {
+      startTimer();
+    }
+  };
+
+  const handleMouseEnter = () => {
+    setPaused(true);
+    clearTimer();
+  };
+
+  const handleMouseLeave = () => {
+    setPaused(false);
+  };
+
+  const current = steps[activeTab];
+
+  return (
+    <section id="how-it-works" className="bg-secondary/50 py-24">
+      <div className="mx-auto max-w-6xl px-6">
+        {/* Section header */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5 }}
+          className="mb-14 text-center"
+        >
+          <p className="font-mono-brand text-[11px] uppercase tracking-[0.2em] text-brand-cyan">
+            Workflow
+          </p>
+          <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground sm:text-4xl">
+            Three Steps to Better Search
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
+            From dataset to decision in minutes.
+          </p>
+        </motion.div>
+
+        {/* Tabs + content area */}
+        <div
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* Tab buttons */}
+          <div className="flex justify-center">
+            <div className="inline-flex gap-1 rounded-xl border border-border bg-card p-1">
+              {steps.map((step) => {
+                const isActive = step.id === activeTab;
+                return (
+                  <button
+                    key={step.id}
+                    onClick={() => handleTabClick(step.id)}
+                    className={`relative rounded-lg px-5 py-2.5 text-sm transition-colors ${
+                      isActive
+                        ? "bg-brand-cyan/10 font-semibold text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {step.label}
+                    {/* Progress bar */}
+                    {isActive && (
+                      <span
+                        key={progressKey}
+                        className="absolute bottom-0 left-0 h-0.5 rounded-full bg-brand-cyan"
+                        style={{
+                          width: "0%",
+                          animation: paused
+                            ? "none"
+                            : `progressFill ${INTERVAL_MS}ms linear forwards`,
+                        }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* GIF display area */}
+          <div className="mx-auto mt-8 max-w-4xl">
+            {/* Browser chrome frame */}
+            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+              {/* Top bar */}
+              <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+                <span className="h-3 w-3 rounded-full bg-red-500/70" />
+                <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
+                <span className="h-3 w-3 rounded-full bg-green-500/70" />
               </div>
 
-              {/* Content */}
-              <h3 className="mt-5 font-sans-brand text-lg font-semibold text-foreground">
-                {title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {description}
-              </p>
+              {/* GIF */}
+              <div className="relative aspect-video w-full bg-background">
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={current.gif}
+                    src={current.gif}
+                    alt={current.label}
+                    loading="lazy"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                </AnimatePresence>
+              </div>
             </div>
-          </motion.div>
-        ))}
-      </motion.div>
-    </div>
-  </section>
-);
+
+            {/* Description */}
+            <p className="mx-auto mt-6 max-w-xl text-center text-muted-foreground">
+              {current.description}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Keyframe for progress bar */}
+      <style>{`
+        @keyframes progressFill {
+          from { width: 0%; }
+          to   { width: 100%; }
+        }
+      `}</style>
+    </section>
+  );
+};
 
 export default HowItWorks;
