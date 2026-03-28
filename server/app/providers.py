@@ -94,6 +94,39 @@ class SerperProvider(SearchProvider):
         return results, latency
 
 
+class SerpApiProvider(SearchProvider):
+    name = "serpapi"
+
+    async def search(self, query: str, top_k: int = 10) -> tuple[list[SearchResult], float]:
+        start = time.perf_counter()
+        async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+            resp = await client.get(
+                "https://serpapi.com/search",
+                params={
+                    "engine": "google",
+                    "q": query,
+                    "num": top_k,
+                    "api_key": settings.serpapi_api_key,
+                    "output": "json",
+                },
+            )
+            resp.raise_for_status()
+        latency = (time.perf_counter() - start) * 1000
+
+        data = resp.json()
+        results = []
+        for i, item in enumerate(data.get("organic_results", [])[:top_k]):
+            results.append(
+                SearchResult(
+                    url=item.get("link", ""),
+                    title=item.get("title", ""),
+                    snippet=item.get("snippet", ""),
+                    rank=i + 1,
+                )
+            )
+        return results, latency
+
+
 class TavilyProvider(SearchProvider):
     name = "tavily"
 
@@ -250,6 +283,7 @@ class MockProvider(SearchProvider):
 PROVIDERS: dict[str, type[SearchProvider]] = {
     "brave": BraveProvider,
     "serper": SerperProvider,
+    "serpapi": SerpApiProvider,
     "tavily": TavilyProvider,
     "tinyfish": TinyfishProvider,
 }
@@ -257,6 +291,7 @@ PROVIDERS: dict[str, type[SearchProvider]] = {
 _KEY_MAP: dict[str, str] = {
     "brave": "brave_api_key",
     "serper": "serper_api_key",
+    "serpapi": "serpapi_api_key",
     "tavily": "tavily_api_key",
     "tinyfish": "tinyfish_api_key",
 }

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     # Search provider API keys
     brave_api_key: str = ""
     serper_api_key: str = ""
+    serpapi_api_key: str = ""
     tavily_api_key: str = ""
     tinyfish_api_key: str = ""
 
