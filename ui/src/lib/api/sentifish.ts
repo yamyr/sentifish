@@ -4,7 +4,7 @@
 
 const API_BASE = import.meta.env.VITE_SENTIFISH_API_URL || "";
 
-export type SearchProvider = "brave" | "serper" | "tavily" | "tinyfish";
+export type SearchProvider = "brave" | "serper" | "serpapi" | "tavily" | "exa" | "tinyfish";
 
 export interface Dataset {
   name: string;
@@ -24,6 +24,13 @@ export interface EvalRunRequest {
   providers: SearchProvider[];
   top_k?: number;
 }
+
+export interface MultiEvalRunRequest {
+  datasets: string[];
+  providers: SearchProvider[];
+  top_k?: number;
+}
+
 
 export interface QueryScore {
   query: string;
@@ -102,6 +109,11 @@ export const sentifishApi = {
     apiFetch<{ runs: EvalRun[] }>("/api/runs").then((r) => r.runs),
   triggerRun: (req: EvalRunRequest) =>
     apiFetch<{ id: string; status: string }>("/api/runs", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
+  triggerMultiRun: (req: MultiEvalRunRequest) =>
+    apiFetch<{ runs: Array<{ id: string; dataset: string; status: string }> }>("/api/runs", {
       method: "POST",
       body: JSON.stringify(req),
     }),
