@@ -132,17 +132,55 @@ def generate_narration(run: EvalRun) -> str:
     return " ".join(lines)
 
 
-async def synthesize_speech(text: str) -> bytes:
-    """Call ElevenLabs TTS API and return raw MP3 audio bytes.
+async def _resolve_agent_voice(api_key: str, agent_id: str) -> dict:
+    """Fetch voice/model config from an ElevenLabs conversational agent."""
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(
+            f"https://api.elevenlabs.io/v1/convai/agents/{agent_id}",
+            headers={"xi-api-key": api_key},
+        )
+        resp.raise_for_status()
+        tts = resp.json()["conversation_config"]["tts"]
+        return {
+            "voice_id": tts["voice_id"],
+            "model_id": tts["model_id"],
+            "stability": tts.get("stability", 0.5),
+            "similarity_boost": tts.get("similarity_boost", 0.8),
+        }
 
-    Uses the fine-tuned ElevenLabs agent when agent_id is configured,
-    otherwise falls back to the standard text-to-speech endpoint.
-    """
+
+# Cache the agent voice config so we don't fetch it on every request
+_agent_voice_cache: dict | None = None
+
+
+async def synthesize_speech(text: str) -> bytes:
+    """Call ElevenLabs TTS API using the fine-tuned agent's voice config."""
+    global _agent_voice_cache
 
     api_key = settings.elevenlabs_api_key
-    voice_id = settings.elevenlabs_voice_id
-    model_id = settings.elevenlabs_model_id
     agent_id = settings.elevenlabs_agent_id
+
+    # If an agent is configured, use its voice/model settings
+    if agent_id:
+        if _agent_voice_cache is None:
+            try:
+                _agent_voice_cache = await _resolve_agent_voice(api_key, agent_id)
+                logger.info("Resolved agent voice: %s", _agent_voice_cache)
+            except Exception as exc:
+                logger.warning("Failed to resolve agent %s, using defaults: %s", agent_id, exc)
+
+    if _agent_voice_cache:
+        voice_id = _agent_voice_cache["voice_id"]
+        model_id = _agent_voice_cache["model_id"]
+        stability = _agent_voice_cache["stability"]
+        similarity_boost = _agent_voice_cache["similarity_boost"]
+    else:
+        voice_id = settings.elevenlabs_voice_id
+        model_id = settings.elevenlabs_model_id
+        stability = 0.5
+        similarity_boost = 0.75
+
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
     headers = {
         "xi-api-key": api_key,
@@ -150,31 +188,14 @@ async def synthesize_speech(text: str) -> bytes:
         "Accept": "audio/mpeg",
     }
 
-    if agent_id:
-        # Use the fine-tuned ElevenLabs conversational agent
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-        payload = {
-            "text": text,
-            "model_id": model_id,
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.75,
-                "style": 0.3,
-            },
-            "agent_id": agent_id,
-        }
-    else:
-        # Standard TTS fallback
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-        payload = {
-            "text": text,
-            "model_id": model_id,
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.75,
-                "style": 0.3,
-            },
-        }
+    payload = {
+        "text": text,
+        "model_id": model_id,
+        "voice_settings": {
+            "stability": stability,
+            "similarity_boost": similarity_boost,
+        },
+    }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
