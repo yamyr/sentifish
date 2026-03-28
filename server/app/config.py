@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = "JBFqnCBsd6RMkjVDRZzb"  # "George" — clear, professional
     elevenlabs_model_id: str = "eleven_multilingual_v2"
+    elevenlabs_agent_id: str = "agent_6401kmsfvaceec8s2rzd2btgpbrw"
 
     # Results storage
     results_dir: str = "./results"
