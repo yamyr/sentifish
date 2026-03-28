@@ -197,7 +197,7 @@ async def create_run(body: dict):
 
     try:
         top_k = max(1, min(int(raw_top_k), 100))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         raise HTTPException(
             status_code=400,
             detail="top_k must be an integer between 1 and 100",
@@ -222,9 +222,7 @@ async def create_run(body: dict):
         dataset_names = [single_dataset]
 
     if not dataset_names:
-        raise HTTPException(
-            status_code=400, detail="'dataset' or 'datasets' is required"
-        )
+        raise HTTPException(status_code=400, detail="'dataset' or 'datasets' is required")
 
     # Load all datasets, fail fast if any missing
     datasets_loaded = []
@@ -232,9 +230,7 @@ async def create_run(body: dict):
         try:
             datasets_loaded.append(ds.load_dataset(name))
         except FileNotFoundError:
-            raise HTTPException(
-                status_code=404, detail=f"Dataset not found: {name!r}"
-            )
+            raise HTTPException(status_code=404, detail=f"Dataset not found: {name!r}")
 
     # Single dataset: backward-compatible response
     if len(datasets_loaded) == 1 and single_dataset:

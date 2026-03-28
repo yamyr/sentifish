@@ -15,7 +15,9 @@ from .models import EvalRun, RunStatus
 
 logger = logging.getLogger(__name__)
 
-_UUID_PATTERN = re.compile(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", re.IGNORECASE)
+_UUID_PATTERN = re.compile(
+    r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", re.IGNORECASE
+)
 
 
 def _validate_run_id(run_id: str) -> str:
