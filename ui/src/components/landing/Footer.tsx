@@ -1,8 +1,15 @@
 import { Fish, Star } from "lucide-react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 
 const Footer = () => (
-  <footer className="bg-background">
+  <motion.footer
+    initial={{ opacity: 0 }}
+    whileInView={{ opacity: 1 }}
+    viewport={{ once: true, margin: "-40px" }}
+    transition={{ duration: 0.5 }}
+    className="overflow-x-hidden bg-background"
+  >
     {/* Gradient top border */}
     <div className="h-px bg-gradient-to-r from-transparent via-brand-cyan/25 to-transparent" />
 
@@ -111,7 +118,7 @@ const Footer = () => (
         </p>
       </div>
     </div>
-  </footer>
+  </motion.footer>
 );
 
 export default Footer;

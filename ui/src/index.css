@@ -142,3 +142,33 @@
   mask-composite: exclude;
   pointer-events: none;
 }
+
+/* ---- Scroll-snap journey ---- */
+
+.snap-container {
+  scroll-snap-type: y proximity;
+  overflow-y: auto;
+  height: 100dvh;
+  scroll-behavior: smooth;
+}
+
+.snap-section {
+  scroll-snap-align: start;
+  min-height: 100dvh;
+  position: relative;
+}
+
+.snap-section-auto {
+  scroll-snap-align: start;
+}
+
+/* Section dividers */
+.section-divider {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, hsl(172 50% 40% / 0.2), hsl(255 45% 60% / 0.2), transparent);
+}
+
+.section-divider-dark {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, hsl(172 50% 40% / 0.3), hsl(255 45% 60% / 0.3), transparent);
+}

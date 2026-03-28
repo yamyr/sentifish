@@ -103,7 +103,7 @@ const MilestoneCard = ({
       initial={{ opacity: 0, x: isLeft ? -30 : 30 }}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.55, ease: "easeOut", delay: index * 0.08 }}
+      transition={{ type: "spring", stiffness: 100, damping: 18, delay: index * 0.1 }}
       className="gradient-border rounded-2xl bg-white/[0.04] p-5 backdrop-blur-sm transition-all duration-300 hover:bg-white/[0.08] hover:shadow-lg hover:shadow-brand-cyan/5"
     >
       {/* Icon + badge row */}
@@ -138,7 +138,7 @@ const MilestoneCard = ({
 const Roadmap = () => (
   <section
     id="roadmap"
-    className="relative overflow-hidden bg-gradient-to-b from-brand-navy via-brand-navy to-brand-indigo/20 py-24"
+    className="relative overflow-hidden overflow-x-hidden bg-gradient-to-b from-brand-navy via-brand-navy to-brand-indigo/20 py-24"
   >
     {/* Neural network background */}
     <NeuralBackground
@@ -172,16 +172,30 @@ const Roadmap = () => (
       </motion.div>
 
       {/* ---- Timeline ---- */}
-      <div className="relative">
+      <div className="relative overflow-hidden">
         {/* Vertical glowing line */}
         <div
           aria-hidden
           className="absolute left-4 top-0 bottom-12 w-px md:left-1/2 md:-translate-x-px"
         >
-          {/* Gradient line */}
-          <div className="h-full w-full bg-gradient-to-b from-brand-cyan via-brand-indigo/60 to-transparent" />
+          {/* Gradient line with draw-in animation */}
+          <motion.div
+            initial={{ scaleY: 0 }}
+            whileInView={{ scaleY: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            style={{ transformOrigin: "top" }}
+            className="h-full w-full bg-gradient-to-b from-brand-cyan via-brand-indigo/60 to-transparent"
+          />
           {/* Pulsing glow overlay */}
-          <div className="absolute inset-0 w-full bg-gradient-to-b from-brand-cyan via-brand-indigo/60 to-transparent opacity-50 blur-sm animate-pulse-glow" />
+          <motion.div
+            initial={{ scaleY: 0 }}
+            whileInView={{ scaleY: 1 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 1.2, ease: "easeOut", delay: 0.1 }}
+            style={{ transformOrigin: "top" }}
+            className="absolute inset-0 w-full bg-gradient-to-b from-brand-cyan via-brand-indigo/60 to-transparent opacity-50 blur-sm animate-pulse-glow"
+          />
         </div>
 
         {/* Milestone rows */}

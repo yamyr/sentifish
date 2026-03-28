@@ -323,14 +323,14 @@ function MobileCards() {
 }
 
 const BenchmarkTable = () => (
-  <section id="providers" className="bg-background py-24">
+  <section id="providers" className="overflow-x-hidden bg-background py-24">
     <div className="mx-auto max-w-6xl px-6">
       {/* Section header */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, x: -30 }}
+        whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: true, margin: "-80px" }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="mb-14 text-center"
       >
         <p className="font-mono-brand text-[11px] uppercase tracking-[0.2em] text-brand-cyan">
@@ -348,8 +348,15 @@ const BenchmarkTable = () => (
       </motion.div>
 
       {/* Table (desktop) / Cards (mobile) */}
-      <DesktopTable />
-      <MobileCards />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.5, delay: 0.15 }}
+      >
+        <DesktopTable />
+        <MobileCards />
+      </motion.div>
 
       {/* Footer */}
       <div className="mt-6 flex flex-col items-center gap-3">
