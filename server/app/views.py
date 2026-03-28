@@ -30,7 +30,15 @@ def list_providers():
 
 @router.get("/datasets")
 def list_datasets():
-    return {"datasets": ds.list_datasets()}
+    names = ds.list_datasets()
+    datasets = []
+    for name in names:
+        try:
+            dataset = ds.load_dataset(name)
+            datasets.append(dataset.model_dump())
+        except Exception:
+            datasets.append({"name": name, "description": "", "cases": []})
+    return {"datasets": datasets}
 
 
 @router.get("/datasets/{name}")
