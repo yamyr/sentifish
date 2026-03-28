@@ -87,7 +87,7 @@ const Navbar = () => {
     <header
       className={`sticky top-0 z-50 w-full transition-colors duration-300 ${
         scrolled
-          ? "bg-white/80 backdrop-blur-md"
+          ? "bg-background/90 backdrop-blur-md"
           : "bg-transparent"
       }`}
     >
@@ -162,7 +162,7 @@ const Navbar = () => {
           </a>
           <Link
             to="/dashboard"
-            className="relative overflow-hidden inline-flex items-center rounded-lg bg-brand-cyan px-5 py-2 font-sans-brand text-sm font-semibold text-brand-navy shadow-sm shadow-brand-cyan/25 transition-all hover:shadow-brand-cyan/40 hover:brightness-110"
+            className="relative overflow-hidden inline-flex items-center rounded-lg bg-brand-cyan px-5 py-2 font-sans-brand text-sm font-semibold text-brand-navy shadow-sm shadow-brand-cyan/20 transition-all hover:shadow-brand-cyan/40 hover:brightness-110"
           >
             Start Evaluating
             <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent" />
@@ -192,7 +192,7 @@ const Navbar = () => {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="overflow-hidden border-b border-border bg-white/95 backdrop-blur-md md:hidden"
+            className="overflow-hidden border-b border-border bg-background/95 backdrop-blur-md md:hidden"
           >
             <div className="mx-auto flex max-w-6xl flex-col gap-1 px-6 py-4">
               {NAV_LINKS.map((link) => {
@@ -228,7 +228,7 @@ const Navbar = () => {
               <Link
                 to="/dashboard"
                 onClick={() => setMobileOpen(false)}
-                className="mt-1 inline-flex items-center justify-center rounded-lg bg-brand-cyan px-5 py-2.5 font-sans-brand text-sm font-semibold text-brand-navy shadow-sm shadow-brand-cyan/25 transition-all hover:brightness-110"
+                className="mt-1 inline-flex items-center justify-center rounded-lg bg-brand-cyan px-5 py-2.5 font-sans-brand text-sm font-semibold text-brand-navy shadow-sm shadow-brand-cyan/20 transition-all hover:brightness-110"
               >
                 Start Evaluating
               </Link>

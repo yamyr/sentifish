@@ -65,7 +65,7 @@ function ScoreBar({
   return (
     <div
       className={`relative flex items-center rounded px-3 py-1.5 ${
-        isBest ? "bg-accent" : ""
+        isBest ? "bg-brand-cyan/8" : ""
       }`}
     >
       <motion.div
@@ -97,7 +97,7 @@ function LatencyBar({
   return (
     <div
       className={`relative flex items-center rounded px-3 py-1.5 ${
-        isBest ? "bg-accent" : ""
+        isBest ? "bg-brand-cyan/8" : ""
       }`}
     >
       <motion.div
@@ -123,7 +123,7 @@ function DesktopTable() {
       <div className="rounded-2xl border border-border bg-card overflow-hidden glow-indigo gradient-border">
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-border bg-muted/40">
+            <tr className="border-b border-border bg-secondary/60">
               <th
                 scope="col"
                 className="px-6 py-4 font-sans-brand text-xs font-semibold uppercase tracking-wider text-muted-foreground"

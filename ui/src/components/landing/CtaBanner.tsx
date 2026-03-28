@@ -4,12 +4,14 @@ import { ArrowRight, ExternalLink } from "lucide-react";
 import NeuralBackground from "./NeuralBackground";
 
 const CtaBanner = () => (
-  <section className="relative overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-indigo py-20">
+  <section className="relative overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-indigo/30 py-20">
     {/* Neural network background */}
     <NeuralBackground
       nodeCount={35}
       connectionDistance={130}
       opacity={0.35}
+      primaryColor="51, 153, 137"
+      secondaryColor="127, 107, 198"
     />
 
     {/* Subtle grid overlay */}
@@ -23,8 +25,8 @@ const CtaBanner = () => (
     />
 
     {/* Decorative orbs */}
-    <div className="absolute -top-20 right-10 h-64 w-64 rounded-full bg-brand-cyan/10 blur-3xl animate-pulse-glow" />
-    <div className="absolute bottom-0 -left-20 h-48 w-48 rounded-full bg-brand-indigo/15 blur-3xl" />
+    <div className="absolute -top-20 right-10 h-64 w-64 rounded-full bg-brand-cyan/8 blur-3xl animate-pulse-glow" />
+    <div className="absolute bottom-0 -left-20 h-48 w-48 rounded-full bg-brand-indigo/10 blur-3xl" />
 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -41,7 +43,7 @@ const CtaBanner = () => (
         ?
       </h2>
 
-      <p className="mt-4 font-sans-brand text-lg text-white/60">
+      <p className="mt-4 font-sans-brand text-lg text-white/70">
         Run your first benchmark in under a minute. Free, open source, no
         account required.
       </p>
@@ -49,7 +51,7 @@ const CtaBanner = () => (
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
         <Link
           to="/dashboard"
-          className="group relative overflow-hidden inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-7 py-3.5 font-sans-brand text-sm font-semibold text-brand-navy shadow-lg shadow-brand-cyan/25 transition-all hover:shadow-brand-cyan/40 hover:brightness-110"
+          className="group relative overflow-hidden inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-7 py-3.5 font-sans-brand text-sm font-semibold text-brand-navy shadow-lg shadow-brand-cyan/20 transition-all hover:shadow-brand-cyan/40 hover:brightness-110"
         >
           <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           Start Evaluating
