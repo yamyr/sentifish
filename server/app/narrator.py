@@ -1,12 +1,56 @@
-"""Narration generation and ElevenLabs TTS synthesis for eval runs."""
+"""Narration generation, caching, and ElevenLabs TTS synthesis for eval runs."""
 
 from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
 
 import httpx
 from fastapi import HTTPException
 
 from .config import settings
 from .models import EvalRun, RunStatus
+
+logger = logging.getLogger(__name__)
+
+
+def _narration_dir(run_id: str) -> Path:
+    """Return the directory where narration artifacts are cached for a run."""
+    d = Path(settings.results_dir) / "narrations" / run_id
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def get_cached_text(run_id: str) -> str | None:
+    """Return cached narration text, or None if not yet generated."""
+    p = _narration_dir(run_id) / "narration.json"
+    if p.is_file():
+        data = json.loads(p.read_text())
+        return data.get("text")
+    return None
+
+
+def save_cached_text(run_id: str, text: str) -> None:
+    """Persist narration text to disk."""
+    p = _narration_dir(run_id) / "narration.json"
+    p.write_text(json.dumps({"text": text}))
+    logger.info("Cached narration text for run %s", run_id)
+
+
+def get_cached_audio(run_id: str) -> bytes | None:
+    """Return cached MP3 audio bytes, or None if not yet synthesized."""
+    p = _narration_dir(run_id) / "narration.mp3"
+    if p.is_file():
+        return p.read_bytes()
+    return None
+
+
+def save_cached_audio(run_id: str, audio: bytes) -> None:
+    """Persist MP3 audio to disk."""
+    p = _narration_dir(run_id) / "narration.mp3"
+    p.write_bytes(audio)
+    logger.info("Cached narration audio for run %s (%d bytes)", run_id, len(audio))
 
 
 def generate_narration(run: EvalRun) -> str:
