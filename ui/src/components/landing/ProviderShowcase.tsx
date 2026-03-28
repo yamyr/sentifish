@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Shield, Zap, Globe, Fish } from "lucide-react";
+import { Shield, Zap, Search, Globe, Compass, Fish } from "lucide-react";
 
 const providers = [
   {
@@ -21,6 +21,15 @@ const providers = [
     Icon: Zap,
   },
   {
+    name: "SerpAPI",
+    description: "Google, Bing, and multi-engine search results API",
+    color: "primary",
+    bgClass: "bg-primary/10",
+    textClass: "text-primary",
+    ringClass: "ring-primary/20",
+    Icon: Search,
+  },
+  {
     name: "Tavily",
     description: "AI-native search optimized for LLM agents",
     color: "warning",
@@ -30,8 +39,17 @@ const providers = [
     Icon: Globe,
   },
   {
+    name: "Exa",
+    description: "Neural search engine with semantic understanding",
+    color: "destructive",
+    bgClass: "bg-destructive/10",
+    textClass: "text-destructive",
+    ringClass: "ring-destructive/20",
+    Icon: Compass,
+  },
+  {
     name: "TinyFish",
-    description: "Lightweight search with real-time relevance scoring",
+    description: "Browser-based search with rich content extraction",
     color: "success",
     bgClass: "bg-success/10",
     textClass: "text-success",
@@ -71,7 +89,7 @@ const ProviderShowcase = () => (
           Providers
         </p>
         <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground sm:text-4xl">
-          Four Providers, One Benchmark
+          Six Providers, One Benchmark
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
           We run the same queries across every provider so you can compare apples
@@ -85,7 +103,7 @@ const ProviderShowcase = () => (
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-60px" }}
-        className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
       >
         {providers.map(({ name, description, bgClass, textClass, ringClass, Icon }) => (
           <motion.div
