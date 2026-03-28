@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { useRuns } from "@/hooks/useApi";
-import { BarChart3, Zap, Target, Activity } from "lucide-react";
+import { BarChart3, Zap, Target, Sparkles } from "lucide-react";
 
 const container = {
   hidden: { opacity: 0 },
@@ -74,12 +74,24 @@ export default function StatCards() {
       }
     }
 
+    // Best LLM Judge Score
+    let bestJudge = 0;
+    let bestJudgeProvider = "\u2014";
+    for (const score of allScores) {
+      if ((score.llm_judge_score ?? 0) > bestJudge) {
+        bestJudge = score.llm_judge_score;
+        bestJudgeProvider = score.provider;
+      }
+    }
+
     return {
       totalQueries,
       bestNdcg: totalQueries > 0 ? bestNdcg.toFixed(3) : "\u2014",
       bestNdcgProvider: totalQueries > 0 ? bestNdcgProvider : "\u2014",
       bestMap: totalQueries > 0 ? bestMap.toFixed(3) : "\u2014",
       bestMapProvider: totalQueries > 0 ? bestMapProvider : "\u2014",
+      bestJudge: totalQueries > 0 ? bestJudge.toFixed(3) : "\u2014",
+      bestJudgeProvider: totalQueries > 0 ? bestJudgeProvider : "\u2014",
       totalRuns: runs?.length ?? 0,
     };
   }, [runs]);
@@ -107,10 +119,10 @@ export default function StatCards() {
       color: "text-warning",
     },
     {
-      label: "Evaluation Runs",
-      value: stats.totalRuns,
-      sub: null,
-      icon: Activity,
+      label: "Best Judge Score",
+      value: stats.bestJudge,
+      sub: stats.bestJudgeProvider !== "\u2014" ? stats.bestJudgeProvider : null,
+      icon: Sparkles,
       color: "text-brand-cyan",
     },
   ];

@@ -41,6 +41,8 @@ export interface QueryScore {
   mrr: number;
   map_at_k: number;
   content_depth: number;
+  llm_judge_score: number;
+  llm_judge_reasoning: string;
   latency_ms: number;
   result_count: number;
   results: SearchResult[];

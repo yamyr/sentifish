@@ -51,6 +51,8 @@ class QueryScore(BaseModel):
     mrr: float = Field(default=0.0, ge=0.0, le=1.0)
     map_at_k: float = Field(default=0.0, ge=0.0, le=1.0)
     content_depth: float = Field(default=0.0, ge=0.0, le=1.0)
+    llm_judge_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    llm_judge_reasoning: str = ""
     latency_ms: float = Field(default=0.0, ge=0.0)
     result_count: int = 0
     results: list[SearchResult] = Field(default_factory=list)
@@ -95,6 +97,7 @@ class EvalRun(BaseModel):
                 "mean_mrr": sum(s.mrr for s in query_scores) / n,
                 "mean_map_at_k": sum(s.map_at_k for s in query_scores) / n,
                 "mean_content_depth": sum(s.content_depth for s in query_scores) / n,
+                "mean_llm_judge_score": sum(s.llm_judge_score for s in query_scores) / n,
                 "mean_latency_ms": sum(s.latency_ms for s in query_scores) / n,
                 "total_queries": n,
             }

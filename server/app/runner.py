@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 from .config import settings
+from .judge import judge_results
 from .models import Dataset, EvalRun, QueryScore, RunStatus
 from .providers import SearchProvider, get_provider
 from .scorers import score_query
@@ -72,6 +73,17 @@ async def _eval_query(
     avg_snippet = sum(snippet_lengths) / len(snippet_lengths) if snippet_lengths else 0.0
     content_depth = min(avg_snippet / 500.0, 1.0)
 
+    # LLM-as-Judge scoring (non-blocking — skip if no API key)
+    judge_score = 0.0
+    judge_reasoning = ""
+    if settings.openai_api_key:
+        try:
+            judge_score, judge_reasoning = await judge_results(
+                query, results, provider.name, top_k
+            )
+        except Exception as exc:
+            logger.warning("Judge scoring failed for %s/%s: %s", provider.name, query[:40], exc)
+
     return QueryScore(
         query=query,
         provider=provider.name,
@@ -81,6 +93,8 @@ async def _eval_query(
         mrr=scores["mrr"],
         map_at_k=scores["map_at_k"],
         content_depth=content_depth,
+        llm_judge_score=judge_score,
+        llm_judge_reasoning=judge_reasoning,
         latency_ms=latency_ms,
         result_count=len(results),
         results=results,

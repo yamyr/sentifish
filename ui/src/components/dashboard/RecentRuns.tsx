@@ -194,6 +194,7 @@ export default function RecentRuns() {
                                 <th className="text-right py-1 pr-3 font-medium">MAP</th>
                                 <th className="text-right py-1 pr-3 font-medium">MRR</th>
                                 <th className="text-right py-1 pr-3 font-medium">Depth</th>
+                                <th className="text-right py-1 pr-3 font-medium">Judge</th>
                                 <th className="text-right py-1 font-medium">Latency</th>
                               </tr>
                             </thead>
@@ -213,6 +214,9 @@ export default function RecentRuns() {
                                   <td className="py-1.5 pr-3 text-right">{(s.map_at_k ?? 0).toFixed(3)}</td>
                                   <td className="py-1.5 pr-3 text-right">{s.mrr.toFixed(3)}</td>
                                   <td className="py-1.5 pr-3 text-right">{(s.content_depth ?? 0).toFixed(3)}</td>
+                                  <td className="py-1.5 pr-3 text-right" title={s.llm_judge_reasoning || undefined}>
+                                    {(s.llm_judge_score ?? 0).toFixed(3)}
+                                  </td>
                                   <td className="py-1.5 text-right">{Math.round(s.latency_ms)}ms</td>
                                 </tr>
                               ))}

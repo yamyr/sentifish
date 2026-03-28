@@ -27,15 +27,16 @@ interface ProviderMetrics {
   map: number;
   recall: number;
   contentDepth: number;
+  judgeScore: number;
   latency: number;
 }
 
 const MOCK_DATA: Record<string, ProviderMetrics> = {
-  brave: { ndcg: 0.84, map: 0.79, recall: 0.76, contentDepth: 0.35, latency: 320 },
-  serper: { ndcg: 0.80, map: 0.76, recall: 0.81, contentDepth: 0.30, latency: 180 },
-  tavily: { ndcg: 0.89, map: 0.84, recall: 0.73, contentDepth: 0.55, latency: 440 },
-  exa: { ndcg: 0.87, map: 0.82, recall: 0.80, contentDepth: 0.60, latency: 350 },
-  tinyfish: { ndcg: 0.72, map: 0.65, recall: 0.60, contentDepth: 0.92, latency: 25000 },
+  brave: { ndcg: 0.84, map: 0.79, recall: 0.76, contentDepth: 0.35, judgeScore: 0.82, latency: 320 },
+  serper: { ndcg: 0.80, map: 0.76, recall: 0.81, contentDepth: 0.30, judgeScore: 0.78, latency: 180 },
+  tavily: { ndcg: 0.89, map: 0.84, recall: 0.73, contentDepth: 0.55, judgeScore: 0.88, latency: 440 },
+  exa: { ndcg: 0.87, map: 0.82, recall: 0.80, contentDepth: 0.60, judgeScore: 0.85, latency: 350 },
+  tinyfish: { ndcg: 0.72, map: 0.65, recall: 0.60, contentDepth: 0.92, judgeScore: 0.75, latency: 25000 },
 };
 
 const BAR_METRICS: { key: keyof ProviderMetrics; label: string }[] = [
@@ -43,6 +44,7 @@ const BAR_METRICS: { key: keyof ProviderMetrics; label: string }[] = [
   { key: "map", label: "Consistent Precision — MAP@K" },
   { key: "recall", label: "Coverage Breadth — Recall@K" },
   { key: "contentDepth", label: "Content Depth" },
+  { key: "judgeScore", label: "LLM Judge — Semantic Relevance" },
 ];
 
 export default function ProviderComparison() {
@@ -67,6 +69,7 @@ export default function ProviderComparison() {
           map: 0,
           recall: 0,
           contentDepth: 0,
+          judgeScore: 0,
           latency: 0,
         };
       }
@@ -81,6 +84,7 @@ export default function ProviderComparison() {
       byProvider[p].map += score.map_at_k ?? 0;
       byProvider[p].recall += score.recall_at_k;
       byProvider[p].contentDepth += score.content_depth ?? 0;
+      byProvider[p].judgeScore += score.llm_judge_score ?? 0;
       byProvider[p].latency += score.latency_ms;
     }
 
@@ -90,6 +94,7 @@ export default function ProviderComparison() {
       byProvider[p].map /= n;
       byProvider[p].recall /= n;
       byProvider[p].contentDepth /= n;
+      byProvider[p].judgeScore /= n;
       byProvider[p].latency /= n;
     }
 
