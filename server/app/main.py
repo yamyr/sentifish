@@ -4,6 +4,8 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from rich.logging import RichHandler
 
 from .config import settings
@@ -49,3 +51,17 @@ app.include_router(views_router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Serve the built frontend (only present inside the Docker image at /app/static)
+# ---------------------------------------------------------------------------
+static_dir = Path("/app/static")
+if static_dir.is_dir():
+    # Catch-all for SPA routing — must come AFTER API routes
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        file_path = static_dir / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(static_dir / "index.html")
