@@ -9,7 +9,7 @@ export default function InsightCard() {
 
   const insight = useMemo(() => {
     const completedRuns = (runs ?? []).filter(
-      (r) => r.status === "completed" && r.scores.length > 0
+      (r) => r.status === "completed" && (r.scores?.length ?? 0) > 0
     );
 
     if (completedRuns.length === 0) {
