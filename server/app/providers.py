@@ -158,6 +158,44 @@ class TavilyProvider(SearchProvider):
         return results, latency
 
 
+class ExaProvider(SearchProvider):
+    name = "exa"
+
+    async def search(self, query: str, top_k: int = 10) -> tuple[list[SearchResult], float]:
+        start = time.perf_counter()
+        async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+            resp = await client.post(
+                "https://api.exa.ai/search",
+                json={
+                    "query": query,
+                    "numResults": top_k,
+                    "type": "auto",
+                    "contents": {"highlights": True},
+                },
+                headers={
+                    "x-api-key": settings.exa_api_key,
+                    "Content-Type": "application/json",
+                },
+            )
+            resp.raise_for_status()
+        latency = (time.perf_counter() - start) * 1000
+
+        data = resp.json()
+        results = []
+        for i, item in enumerate(data.get("results", [])[:top_k]):
+            highlights = item.get("highlights") or []
+            snippet = highlights[0] if highlights else item.get("summary", "")
+            results.append(
+                SearchResult(
+                    url=item.get("url", ""),
+                    title=item.get("title", ""),
+                    snippet=snippet,
+                    rank=i + 1,
+                )
+            )
+        return results, latency
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -278,6 +316,7 @@ PROVIDERS: dict[str, type[SearchProvider]] = {
     "serper": SerperProvider,
     "serpapi": SerpApiProvider,
     "tavily": TavilyProvider,
+    "exa": ExaProvider,
     "tinyfish": TinyfishProvider,
 }
 
@@ -286,6 +325,7 @@ _KEY_MAP: dict[str, str] = {
     "serper": "serper_api_key",
     "serpapi": "serpapi_api_key",
     "tavily": "tavily_api_key",
+    "exa": "exa_api_key",
     "tinyfish": "tinyfish_api_key",
 }
 

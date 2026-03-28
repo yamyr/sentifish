@@ -74,6 +74,7 @@ async def _eval_query(
         recall_at_k=scores["recall_at_k"],
         ndcg_at_k=scores["ndcg_at_k"],
         mrr=scores["mrr"],
+        map_at_k=scores["map_at_k"],
         latency_ms=latency_ms,
         result_count=len(results),
         results=results,
