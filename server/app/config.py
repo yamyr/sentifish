@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     serper_api_key: str = ""
     serpapi_api_key: str = ""
     tavily_api_key: str = ""
+    exa_api_key: str = ""
     tinyfish_api_key: str = ""
 
     # ElevenLabs TTS
