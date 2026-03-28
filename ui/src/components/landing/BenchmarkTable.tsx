@@ -7,23 +7,24 @@ import { Shield, Zap, Globe, Fish, Trophy, type LucideIcon } from "lucide-react"
 interface Benchmark {
   name: string;
   ndcg: number;
-  mrr: number;
-  precision: number;
+  map: number;
+  recall: number;
+  contentDepth: number;
   latency: number;
   color: string;
   Icon: LucideIcon;
 }
 
 const benchmarks: Benchmark[] = [
-  { name: "Brave", ndcg: 0.82, mrr: 0.88, precision: 0.76, latency: 320, color: "brand-indigo", Icon: Shield },
-  { name: "Serper", ndcg: 0.89, mrr: 0.92, precision: 0.84, latency: 245, color: "brand-cyan", Icon: Zap },
-  { name: "Tavily", ndcg: 0.85, mrr: 0.87, precision: 0.80, latency: 410, color: "warning", Icon: Globe },
-  { name: "TinyFish", ndcg: 0.78, mrr: 0.81, precision: 0.72, latency: 180, color: "success", Icon: Fish },
+  { name: "Brave", ndcg: 0.82, map: 0.79, recall: 0.74, contentDepth: 0.35, latency: 320, color: "brand-indigo", Icon: Shield },
+  { name: "Serper", ndcg: 0.89, map: 0.85, recall: 0.80, contentDepth: 0.40, latency: 245, color: "brand-cyan", Icon: Zap },
+  { name: "Tavily", ndcg: 0.85, map: 0.82, recall: 0.78, contentDepth: 0.45, latency: 410, color: "warning", Icon: Globe },
+  { name: "TinyFish", ndcg: 0.78, map: 0.73, recall: 0.76, contentDepth: 0.92, latency: 1850, color: "success", Icon: Fish },
 ];
 
-type ScoreKey = "ndcg" | "mrr" | "precision";
+type ScoreKey = "ndcg" | "map" | "recall" | "contentDepth";
 
-const scoreKeys: ScoreKey[] = ["ndcg", "mrr", "precision"];
+const scoreKeys: ScoreKey[] = ["ndcg", "map", "recall", "contentDepth"];
 
 /** Find the best value per metric (highest for scores, lowest for latency). */
 function computeBests(data: Benchmark[]) {
@@ -37,7 +38,7 @@ function computeBests(data: Benchmark[]) {
 
 const bests = computeBests(benchmarks);
 
-const MAX_LATENCY = 500;
+const MAX_LATENCY = 2000;
 
 const rowVariants = {
   hidden: { opacity: 0, y: 16 },
@@ -134,25 +135,31 @@ function DesktopTable() {
                 scope="col"
                 className="px-6 py-4 font-sans-brand text-xs font-semibold uppercase tracking-wider text-muted-foreground"
               >
-                NDCG@10
+                NDCG@K
               </th>
               <th
                 scope="col"
                 className="px-6 py-4 font-sans-brand text-xs font-semibold uppercase tracking-wider text-muted-foreground"
               >
-                MRR
+                MAP@K
               </th>
               <th
                 scope="col"
                 className="px-6 py-4 font-sans-brand text-xs font-semibold uppercase tracking-wider text-muted-foreground"
               >
-                Precision@5
+                Recall@K
               </th>
               <th
                 scope="col"
                 className="px-6 py-4 font-sans-brand text-xs font-semibold uppercase tracking-wider text-muted-foreground"
               >
-                Avg Latency
+                Content Depth
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-4 font-sans-brand text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                Latency
               </th>
             </tr>
           </thead>
@@ -197,18 +204,26 @@ function DesktopTable() {
                   </td>
                   <td className="px-6 py-4">
                     <ScoreBar
-                      value={b.mrr}
+                      value={b.map}
                       max={1.0}
                       color={color}
-                      isBest={b.mrr === bests.mrr}
+                      isBest={b.map === bests.map}
                     />
                   </td>
                   <td className="px-6 py-4">
                     <ScoreBar
-                      value={b.precision}
+                      value={b.recall}
                       max={1.0}
                       color={color}
-                      isBest={b.precision === bests.precision}
+                      isBest={b.recall === bests.recall}
+                    />
+                  </td>
+                  <td className="px-6 py-4">
+                    <ScoreBar
+                      value={b.contentDepth}
+                      max={1.0}
+                      color={color}
+                      isBest={b.contentDepth === bests.contentDepth}
                     />
                   </td>
                   <td className="px-6 py-4">
@@ -263,9 +278,10 @@ function MobileCards() {
             <dl className="space-y-3">
               {(
                 [
-                  ["NDCG@10", b.ndcg, bests.ndcg],
-                  ["MRR", b.mrr, bests.mrr],
-                  ["Precision@5", b.precision, bests.precision],
+                  ["NDCG@K", b.ndcg, bests.ndcg],
+                  ["MAP@K", b.map, bests.map],
+                  ["Recall@K", b.recall, bests.recall],
+                  ["Content Depth", b.contentDepth, bests.contentDepth],
                 ] as const
               ).map(([label, value, best]) => (
                 <div
