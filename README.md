@@ -30,13 +30,15 @@ Search APIs all claim to be the best. Sentifish lets you prove it with data: run
 
 ## Features
 
-- **4 search providers**: Brave, Serper, Tavily, TinyFish (SSE streaming with DuckDuckGo)
+- **6 search providers**: Brave, Serper, SerpAPI, Tavily, Exa, TinyFish
 - **IR scoring**: Precision@K, Recall@K, NDCG@K, MRR, Latency
 - **Async evaluation runs**: POST triggers run, poll for results as providers finish
 - **Dashboard UI**: provider head-to-head comparison, NDCG trend charts, run history
 - **Typed API client**: full TypeScript SDK with React Query integration
 - **Persistent results**: in-memory store + disk persistence to `./results/`
 - **Dataset management**: create, list, and manage evaluation datasets
+- **Multi-dataset evaluation**: Run benchmarks across multiple datasets in parallel
+- **7 curated datasets**: Sample + 6 domain-specific datasets covering developer tools, news, research, startups, ML engineering, and product design
 - **Railway-ready**: Dockerfile + railway.toml included
 
 ## Architecture
@@ -53,6 +55,7 @@ Python FastAPI server with async evaluation engine.
 - Providers run concurrently (TinyFish: 2 concurrent, others: 5)
 - Scores stream in as providers complete via `as_completed`
 - Results persisted to `./results/` on disk
+- Multi-dataset runs spawn parallel evaluation tasks
 
 ### Frontend
 
@@ -125,17 +128,37 @@ curl http://localhost:4010/api/runs/{run_id}
 
 Scores stream in as providers complete — no need to wait for the slowest one.
 
-## Sample Dataset
+### Multi-dataset evaluation
 
-Ships with 5 evaluation queries:
+```bash
+curl -X POST http://localhost:4010/api/runs \
+  -H "Content-Type: application/json" \
+  -d '{"datasets": ["developer-tools", "ml-engineer"], "providers": ["brave", "serper"], "top_k": 10}'
+```
 
-| Query | Tags |
-|---|---|
-| Python FastAPI tutorial | programming, python |
-| how to make sourdough bread | cooking, baking |
-| transformer architecture explained | machine learning, AI |
-| best practices REST API design | programming, architecture |
-| climate change effects on coral reefs | science, environment |
+Returns one run per dataset, all executing in parallel:
+```json
+{
+  "runs": [
+    {"id": "...", "dataset": "developer-tools", "status": "running"},
+    {"id": "...", "dataset": "ml-engineer", "status": "running"}
+  ]
+}
+```
+
+## Datasets
+
+Ships with 7 evaluation datasets (48+ queries total):
+
+| Dataset | Domain | Queries | Description |
+|---|---|---|---|
+| `sample` | General | 5 | Mixed topics for smoke testing |
+| `developer-tools` | Engineering | 8 | Framework docs, debugging, API references |
+| `news-and-current-events` | Journalism | 8 | Fact-checking, trending topics, explainers |
+| `academic-research` | Science | 8 | Papers, scientific concepts, literature reviews |
+| `startup-founder` | Business | 8 | Market research, fundraising, competitor analysis |
+| `ml-engineer` | AI/ML | 8 | Model benchmarks, implementations, tooling |
+| `product-designer` | Design | 8 | UX patterns, design systems, accessibility |
 
 ## Metrics
 

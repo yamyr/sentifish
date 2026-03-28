@@ -1,0 +1,78 @@
+{
+  "name": "product-designer",
+  "description": "UX design patterns, design systems, accessibility standards, and research methodologies",
+  "cases": [
+    {
+      "query": "mobile navigation patterns best practices",
+      "relevant_urls": [
+        "https://www.nngroup.com/articles/mobile-navigation/",
+        "https://m3.material.io/components/navigation-bar/overview",
+        "https://www.smashingmagazine.com/2022/04/designing-better-mobile-navigation-ux/"
+      ],
+      "tags": ["mobile", "navigation", "UX"]
+    },
+    {
+      "query": "WCAG 2.2 accessibility color contrast requirements",
+      "relevant_urls": [
+        "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
+        "https://www.w3.org/TR/WCAG22/",
+        "https://www.a11yproject.com/checklist/"
+      ],
+      "tags": ["accessibility", "WCAG", "color"]
+    },
+    {
+      "query": "design system component library guide",
+      "relevant_urls": [
+        "https://m3.material.io/components",
+        "https://www.nngroup.com/articles/design-systems-101/",
+        "https://www.smashingmagazine.com/2022/01/building-design-system-react/"
+      ],
+      "tags": ["design-systems", "components", "UI"]
+    },
+    {
+      "query": "user research interview techniques",
+      "relevant_urls": [
+        "https://www.nngroup.com/articles/user-interviews/",
+        "https://www.nngroup.com/articles/interviewing-users/",
+        "https://www.smashingmagazine.com/2020/06/user-interview-questions/"
+      ],
+      "tags": ["research", "interviews", "UX"]
+    },
+    {
+      "query": "Figma auto layout tutorial",
+      "relevant_urls": [
+        "https://help.figma.com/hc/en-us/articles/5731482952599-Using-auto-layout",
+        "https://www.figma.com/blog/announcing-auto-layout/",
+        "https://www.smashingmagazine.com/2023/02/guide-figma-auto-layout/"
+      ],
+      "tags": ["figma", "auto-layout", "tools"]
+    },
+    {
+      "query": "information architecture card sorting",
+      "relevant_urls": [
+        "https://www.nngroup.com/articles/card-sorting-definition/",
+        "https://www.nngroup.com/articles/card-sorting-terminology-matches/",
+        "https://www.smashingmagazine.com/2014/10/improving-information-architecture-card-sorting-beginners-guide/"
+      ],
+      "tags": ["IA", "card-sorting", "research"]
+    },
+    {
+      "query": "microinteraction design principles",
+      "relevant_urls": [
+        "https://www.nngroup.com/articles/microinteractions/",
+        "https://uxdesign.cc/micro-interactions-why-when-and-how-to-use-them-to-boost-the-ux-17094b872f31",
+        "https://www.smashingmagazine.com/2018/01/comprehensive-guide-to-mobile-app-design/"
+      ],
+      "tags": ["microinteractions", "animation", "UX"]
+    },
+    {
+      "query": "dark mode UI design guidelines",
+      "relevant_urls": [
+        "https://m3.material.io/styles/color/dynamic/choosing-a-source",
+        "https://www.nngroup.com/articles/dark-mode/",
+        "https://developer.apple.com/design/human-interface-guidelines/dark-mode"
+      ],
+      "tags": ["dark-mode", "color", "UI"]
+    }
+  ]
+}

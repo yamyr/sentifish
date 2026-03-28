@@ -1,0 +1,78 @@
+{
+  "name": "news-and-current-events",
+  "description": "Fact-checking queries, policy explainers, and trending technology and science topics",
+  "cases": [
+    {
+      "query": "EU AI Act regulation summary",
+      "relevant_urls": [
+        "https://www.europarl.europa.eu/topics/en/article/20230601STO93804/eu-ai-act-first-regulation-on-artificial-intelligence",
+        "https://www.reuters.com/technology/what-is-european-union-ai-act-2023-12-09/",
+        "https://www.bbc.com/news/technology-68546996"
+      ],
+      "tags": ["regulation", "AI", "europe"]
+    },
+    {
+      "query": "SpaceX Starship launch timeline 2024",
+      "relevant_urls": [
+        "https://www.spacex.com/vehicles/starship/",
+        "https://arstechnica.com/space/",
+        "https://www.theverge.com/2024/3/14/24099498/spacex-starship-third-test-flight"
+      ],
+      "tags": ["space", "spacex", "launches"]
+    },
+    {
+      "query": "global semiconductor chip shortage causes",
+      "relevant_urls": [
+        "https://www.reuters.com/technology/global-chip-shortage/",
+        "https://www.bbc.com/news/business-58230388",
+        "https://hbr.org/2022/02/why-were-in-the-midst-of-a-global-semiconductor-shortage"
+      ],
+      "tags": ["semiconductors", "supply-chain", "economics"]
+    },
+    {
+      "query": "IPCC climate report 2023 key findings",
+      "relevant_urls": [
+        "https://www.ipcc.ch/report/ar6/syr/",
+        "https://www.bbc.com/news/science-environment-64950549",
+        "https://www.nature.com/articles/d41586-023-00801-2"
+      ],
+      "tags": ["climate", "science", "policy"]
+    },
+    {
+      "query": "OpenAI GPT-4 capabilities and limitations",
+      "relevant_urls": [
+        "https://openai.com/research/gpt-4",
+        "https://arxiv.org/abs/2303.08774",
+        "https://www.theverge.com/23610427/openai-gpt-4-capabilities-limitations"
+      ],
+      "tags": ["AI", "language-models", "openai"]
+    },
+    {
+      "query": "US Federal Reserve interest rate decisions 2024",
+      "relevant_urls": [
+        "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+        "https://apnews.com/hub/federal-reserve",
+        "https://www.reuters.com/markets/us/fed/"
+      ],
+      "tags": ["economics", "federal-reserve", "interest-rates"]
+    },
+    {
+      "query": "WHO pandemic preparedness treaty",
+      "relevant_urls": [
+        "https://www.who.int/news-room/questions-and-answers/item/pandemic-prevention--preparedness-and-response-accord",
+        "https://www.bbc.com/news/health-67461495",
+        "https://apnews.com/article/who-pandemic-treaty-negotiations"
+      ],
+      "tags": ["health", "WHO", "pandemic"]
+    },
+    {
+      "query": "quantum computing breakthrough 2024",
+      "relevant_urls": [
+        "https://www.nature.com/articles/s41586-023-06927-3",
+        "https://www.technologyreview.com/topic/computing/quantum-computing/",
+        "https://arstechnica.com/science/quantum-computing/"
+      ],
+      "tags": ["quantum-computing", "science", "technology"]
+    }
+  ]
+}

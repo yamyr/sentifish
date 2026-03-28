@@ -187,14 +187,14 @@ async def get_narration_audio(run_id: str):
 
 @router.post("/runs")
 async def create_run(body: dict):
-    """Trigger a new eval run.
+    """Trigger eval run(s).
 
-    Body: {"dataset": "name", "providers": ["brave", "serper"], "top_k": 10}
+    Body (single):  {"dataset": "name", "providers": [...], "top_k": 10}
+    Body (multi):   {"datasets": ["name1", "name2"], "providers": [...], "top_k": 10}
     """
-    dataset_name = body.get("dataset")
     provider_names = body.get("providers")
-
     raw_top_k = body.get("top_k", 10)
+
     try:
         top_k = max(1, min(int(raw_top_k), 100))
     except (TypeError, ValueError):
@@ -203,8 +203,6 @@ async def create_run(body: dict):
             detail="top_k must be an integer between 1 and 100",
         )
 
-    if not dataset_name:
-        raise HTTPException(status_code=400, detail="'dataset' is required")
     if not provider_names:
         raise HTTPException(status_code=400, detail="'providers' list is required")
 
@@ -216,11 +214,40 @@ async def create_run(body: dict):
             detail=f"Unknown provider(s): {', '.join(sorted(unknown))}",
         )
 
-    try:
-        dataset = ds.load_dataset(dataset_name)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Resource not found")
+    # Determine dataset(s)
+    dataset_names = body.get("datasets") or []
+    single_dataset = body.get("dataset")
 
-    run = runner.create_run(dataset, provider_names, top_k)
-    asyncio.create_task(runner.execute_run(run, dataset, provider_names, top_k))
-    return {"id": run.id, "status": run.status}
+    if single_dataset and not dataset_names:
+        dataset_names = [single_dataset]
+
+    if not dataset_names:
+        raise HTTPException(
+            status_code=400, detail="'dataset' or 'datasets' is required"
+        )
+
+    # Load all datasets, fail fast if any missing
+    datasets_loaded = []
+    for name in dataset_names:
+        try:
+            datasets_loaded.append(ds.load_dataset(name))
+        except FileNotFoundError:
+            raise HTTPException(
+                status_code=404, detail=f"Dataset not found: {name!r}"
+            )
+
+    # Single dataset: backward-compatible response
+    if len(datasets_loaded) == 1 and single_dataset:
+        dataset = datasets_loaded[0]
+        run = runner.create_run(dataset, provider_names, top_k)
+        asyncio.create_task(runner.execute_run(run, dataset, provider_names, top_k))
+        return {"id": run.id, "status": run.status}
+
+    # Multi-dataset: create parallel runs
+    results = []
+    for dataset in datasets_loaded:
+        run = runner.create_run(dataset, provider_names, top_k)
+        asyncio.create_task(runner.execute_run(run, dataset, provider_names, top_k))
+        results.append({"id": run.id, "dataset": dataset.name, "status": run.status})
+
+    return {"runs": results}
