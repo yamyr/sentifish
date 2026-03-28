@@ -2,13 +2,16 @@ import { Fish, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Footer = () => (
-  <footer className="border-t border-border bg-background">
+  <footer className="bg-background">
+    {/* Gradient top border */}
+    <div className="h-px bg-gradient-to-r from-transparent via-brand-cyan/30 to-transparent" />
+
     <div className="mx-auto max-w-6xl px-6 py-16">
       <div className="grid gap-12 md:grid-cols-3">
         {/* Left column – Branding */}
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-cyan/15 ring-1 ring-brand-cyan/30">
+            <div className="glow-cyan flex h-8 w-8 items-center justify-center rounded-lg bg-brand-cyan/15 ring-1 ring-brand-cyan/30">
               <Fish className="h-4 w-4 text-brand-cyan" />
             </div>
             <span className="font-sans-brand text-lg font-semibold">
@@ -93,9 +96,9 @@ const Footer = () => (
             href="https://github.com/yamyr/sentifish"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-4 inline-flex items-center gap-1.5 text-sm text-brand-cyan hover:underline"
+            className="group mt-4 inline-flex items-center gap-1.5 text-sm text-brand-cyan hover:underline"
           >
-            <Star className="h-3.5 w-3.5" />
+            <Star className="h-3.5 w-3.5 transition-transform duration-300 group-hover:rotate-[72deg] group-hover:scale-125" />
             Star us on GitHub
           </a>
         </div>

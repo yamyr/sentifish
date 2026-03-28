@@ -37,6 +37,11 @@ const Hero = () => {
         }}
       />
 
+      {/* Floating decorative orbs */}
+      <div className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full bg-brand-cyan/10 blur-3xl animate-pulse-glow" />
+      <div className="pointer-events-none absolute -bottom-10 -left-20 h-48 w-48 rounded-full bg-brand-indigo/15 blur-3xl" />
+      <div className="pointer-events-none absolute top-1/2 left-1/3 h-56 w-56 rounded-full bg-brand-cyan/5 blur-3xl" />
+
       <div className="relative mx-auto max-w-6xl px-6 pt-28 sm:pt-36 lg:pt-44 pb-16">
         <div className="flex flex-col items-center text-center">
           {/* Logo */}
@@ -46,7 +51,7 @@ const Hero = () => {
             transition={{ duration: 0.5 }}
             className="mb-8 flex items-center gap-3"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-cyan/15 ring-1 ring-brand-cyan/30">
+            <div className="glow-cyan flex h-12 w-12 items-center justify-center rounded-xl bg-brand-cyan/15 ring-1 ring-brand-cyan/30">
               <Fish className="h-6 w-6 text-brand-cyan" />
             </div>
             <span className="font-sans-brand text-2xl font-bold text-white">
@@ -63,7 +68,10 @@ const Hero = () => {
           >
             Know Which Search API
             <br />
-            <span className="bg-gradient-to-r from-brand-cyan to-brand-indigo bg-clip-text text-transparent">
+            <span
+              className="animate-gradient-shift bg-gradient-to-r from-brand-cyan via-brand-indigo to-brand-cyan bg-clip-text text-transparent"
+              style={{ backgroundSize: "200% 200%" }}
+            >
               Actually Works
             </span>
           </motion.h1>
@@ -88,8 +96,9 @@ const Hero = () => {
           >
             <Link
               to="/dashboard"
-              className="group inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-7 py-3.5 font-sans-brand text-sm font-semibold text-brand-navy shadow-lg shadow-brand-cyan/25 transition-all hover:shadow-brand-cyan/40 hover:brightness-110"
+              className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-brand-cyan px-7 py-3.5 font-sans-brand text-sm font-semibold text-brand-navy shadow-lg shadow-brand-cyan/25 transition-all hover:shadow-brand-cyan/40 hover:brightness-110"
             >
+              <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               Start Evaluating
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
@@ -118,7 +127,7 @@ const Hero = () => {
             className="mt-16 mx-auto max-w-5xl px-4"
             style={{ transform: "perspective(1200px) rotateX(2deg)" }}
           >
-            <div className="relative rounded-2xl border border-white/10 bg-white/5 shadow-2xl shadow-brand-cyan/10 overflow-hidden">
+            <div className="glow-cyan relative rounded-2xl gradient-border bg-white/5 shadow-2xl shadow-brand-cyan/10 overflow-hidden">
               {/* Browser chrome top bar */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-white/5">
                 <div className="h-2.5 w-2.5 rounded-full bg-red-500" />

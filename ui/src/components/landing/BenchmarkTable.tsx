@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Shield, Zap, Globe, Fish, type LucideIcon } from "lucide-react";
+import { Shield, Zap, Globe, Fish, Trophy, type LucideIcon } from "lucide-react";
 
 // TODO: fetch from /api/runs/latest
 
@@ -68,11 +68,15 @@ function ScoreBar({
         isBest ? "bg-accent" : ""
       }`}
     >
-      <div
+      <motion.div
         className={`absolute inset-y-0 left-0 rounded bg-${color}/15`}
-        style={{ width: `${pct}%` }}
+        initial={{ width: 0 }}
+        whileInView={{ width: `${pct}%` }}
+        viewport={{ once: true }}
+        transition={{ type: "spring", stiffness: 60, damping: 18, delay: 0.1 }}
       />
-      <span className="relative font-mono-brand text-sm text-foreground">
+      <span className="relative flex items-center gap-1 font-mono-brand text-sm text-foreground">
+        {isBest && <Trophy className="h-3 w-3 text-brand-cyan" />}
         {value}
       </span>
     </div>
@@ -96,11 +100,15 @@ function LatencyBar({
         isBest ? "bg-accent" : ""
       }`}
     >
-      <div
+      <motion.div
         className={`absolute inset-y-0 left-0 rounded bg-${color}/15`}
-        style={{ width: `${pct}%` }}
+        initial={{ width: 0 }}
+        whileInView={{ width: `${pct}%` }}
+        viewport={{ once: true }}
+        transition={{ type: "spring", stiffness: 60, damping: 18, delay: 0.1 }}
       />
-      <span className="relative font-mono-brand text-sm text-foreground">
+      <span className="relative flex items-center gap-1 font-mono-brand text-sm text-foreground">
+        {isBest && <Trophy className="h-3 w-3 text-brand-cyan" />}
         {value}
         <span className="ml-0.5 text-muted-foreground">ms</span>
       </span>
@@ -112,7 +120,7 @@ function LatencyBar({
 function DesktopTable() {
   return (
     <div className="hidden md:block">
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card overflow-hidden glow-indigo gradient-border">
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-border bg-muted/40">
@@ -162,7 +170,7 @@ function DesktopTable() {
                   key={b.name}
                   custom={i}
                   variants={rowVariants}
-                  className={isLast ? "" : "border-b border-border"}
+                  className={`hover:bg-brand-cyan/[0.03] transition-colors ${isLast ? "" : "border-b border-border"}`}
                 >
                   <th
                     scope="row"
@@ -313,7 +321,10 @@ const BenchmarkTable = () => (
           Benchmarks
         </p>
         <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground sm:text-4xl">
-          Four Providers, One Benchmark
+          Four Providers,{" "}
+          <span className="bg-gradient-to-r from-brand-cyan to-brand-indigo bg-clip-text text-transparent">
+            One Benchmark
+          </span>
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
           Same queries, same dataset, scored with real IR metrics.

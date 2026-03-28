@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { label: "How It Works", href: "#how-it-works" },
   { label: "Metrics", href: "#metrics" },
   { label: "Why Sentifish", href: "#why" },
+  { label: "Roadmap", href: "#roadmap" },
 ] as const;
 
 const SECTION_IDS = NAV_LINKS.map((l) => l.href.slice(1));
@@ -86,7 +87,7 @@ const Navbar = () => {
     <header
       className={`sticky top-0 z-50 w-full transition-colors duration-300 ${
         scrolled
-          ? "border-b border-border bg-white/80 backdrop-blur-md"
+          ? "bg-white/80 backdrop-blur-md"
           : "bg-transparent"
       }`}
     >
@@ -161,9 +162,10 @@ const Navbar = () => {
           </a>
           <Link
             to="/dashboard"
-            className="inline-flex items-center rounded-lg bg-brand-cyan px-5 py-2 font-sans-brand text-sm font-semibold text-brand-navy shadow-sm shadow-brand-cyan/25 transition-all hover:shadow-brand-cyan/40 hover:brightness-110"
+            className="relative overflow-hidden inline-flex items-center rounded-lg bg-brand-cyan px-5 py-2 font-sans-brand text-sm font-semibold text-brand-navy shadow-sm shadow-brand-cyan/25 transition-all hover:shadow-brand-cyan/40 hover:brightness-110"
           >
             Start Evaluating
+            <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           </Link>
         </div>
 
@@ -234,6 +236,11 @@ const Navbar = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Gradient bottom border when scrolled */}
+      {scrolled && (
+        <div className="h-px bg-gradient-to-r from-transparent via-brand-cyan/30 to-transparent" />
+      )}
     </header>
   );
 };
