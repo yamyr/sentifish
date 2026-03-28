@@ -9,10 +9,18 @@ import ProviderComparison from "@/components/dashboard/ProviderComparison";
 import TrendChart from "@/components/dashboard/TrendChart";
 import RecentRuns from "@/components/dashboard/RecentRuns";
 import InsightCard from "@/components/dashboard/InsightCard";
+import NarratorButton from "@/components/dashboard/NarratorButton";
 import NewRunDialog from "@/components/dashboard/NewRunDialog";
+import { useRuns } from "@/hooks/useApi";
 
 export default function Dashboard() {
   const [newRunOpen, setNewRunOpen] = useState(false);
+  const { data: runs } = useRuns();
+
+  const latestCompletedRunId =
+    runs
+      ?.filter((r) => r.status === "completed")
+      .sort((a, b) => b.created_at - a.created_at)[0]?.id ?? null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,6 +64,8 @@ export default function Dashboard() {
         </div>
 
         <InsightCard />
+
+        <NarratorButton runId={latestCompletedRunId} />
 
         <RecentRuns />
       </main>
