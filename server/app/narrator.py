@@ -116,13 +116,16 @@ def generate_narration(run: EvalRun) -> str:
 
 
 async def synthesize_speech(text: str) -> bytes:
-    """Call ElevenLabs TTS API and return raw MP3 audio bytes."""
+    """Call ElevenLabs TTS API and return raw MP3 audio bytes.
+
+    Uses the fine-tuned ElevenLabs agent when agent_id is configured,
+    otherwise falls back to the standard text-to-speech endpoint.
+    """
 
     api_key = settings.elevenlabs_api_key
     voice_id = settings.elevenlabs_voice_id
     model_id = settings.elevenlabs_model_id
-
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    agent_id = settings.elevenlabs_agent_id
 
     headers = {
         "xi-api-key": api_key,
@@ -130,15 +133,31 @@ async def synthesize_speech(text: str) -> bytes:
         "Accept": "audio/mpeg",
     }
 
-    payload = {
-        "text": text,
-        "model_id": model_id,
-        "voice_settings": {
-            "stability": 0.5,
-            "similarity_boost": 0.75,
-            "style": 0.3,
-        },
-    }
+    if agent_id:
+        # Use the fine-tuned ElevenLabs conversational agent
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        payload = {
+            "text": text,
+            "model_id": model_id,
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+                "style": 0.3,
+            },
+            "agent_id": agent_id,
+        }
+    else:
+        # Standard TTS fallback
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        payload = {
+            "text": text,
+            "model_id": model_id,
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+                "style": 0.3,
+            },
+        }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
