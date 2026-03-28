@@ -16,8 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 def _narration_dir(run_id: str) -> Path:
-    """Return the directory where narration artifacts are cached for a run."""
-    d = Path(settings.results_dir) / "narrations" / run_id
+    """Return the directory where narration artifacts live for a run."""
+    return Path(settings.results_dir) / "narrations" / run_id
+
+
+def _ensure_narration_dir(run_id: str) -> Path:
+    """Create and return the narration cache directory for a run."""
+    d = _narration_dir(run_id)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -25,32 +30,44 @@ def _narration_dir(run_id: str) -> Path:
 def get_cached_text(run_id: str) -> str | None:
     """Return cached narration text, or None if not yet generated."""
     p = _narration_dir(run_id) / "narration.json"
-    if p.is_file():
-        data = json.loads(p.read_text())
-        return data.get("text")
+    try:
+        if p.is_file():
+            data = json.loads(p.read_text())
+            return data.get("text")
+    except OSError:
+        pass
     return None
 
 
 def save_cached_text(run_id: str, text: str) -> None:
     """Persist narration text to disk."""
-    p = _narration_dir(run_id) / "narration.json"
-    p.write_text(json.dumps({"text": text}))
-    logger.info("Cached narration text for run %s", run_id)
+    try:
+        p = _ensure_narration_dir(run_id) / "narration.json"
+        p.write_text(json.dumps({"text": text}))
+        logger.info("Cached narration text for run %s", run_id)
+    except OSError as exc:
+        logger.warning("Could not cache narration text for run %s: %s", run_id, exc)
 
 
 def get_cached_audio(run_id: str) -> bytes | None:
     """Return cached MP3 audio bytes, or None if not yet synthesized."""
     p = _narration_dir(run_id) / "narration.mp3"
-    if p.is_file():
-        return p.read_bytes()
+    try:
+        if p.is_file():
+            return p.read_bytes()
+    except OSError:
+        pass
     return None
 
 
 def save_cached_audio(run_id: str, audio: bytes) -> None:
     """Persist MP3 audio to disk."""
-    p = _narration_dir(run_id) / "narration.mp3"
-    p.write_bytes(audio)
-    logger.info("Cached narration audio for run %s (%d bytes)", run_id, len(audio))
+    try:
+        p = _ensure_narration_dir(run_id) / "narration.mp3"
+        p.write_bytes(audio)
+        logger.info("Cached narration audio for run %s (%d bytes)", run_id, len(audio))
+    except OSError as exc:
+        logger.warning("Could not cache narration audio for run %s: %s", run_id, exc)
 
 
 def generate_narration(run: EvalRun) -> str:
