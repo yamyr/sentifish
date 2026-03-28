@@ -26,13 +26,15 @@ const Hero = () => {
   return (
     <section
       id="hero"
-      className="relative w-full overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-indigo"
+      className="relative w-full overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-indigo/80"
     >
       {/* Neural network background */}
       <NeuralBackground
         nodeCount={70}
         connectionDistance={150}
         opacity={0.6}
+        primaryColor="51, 153, 137"
+        secondaryColor="127, 107, 198"
       />
 
       {/* Subtle grid overlay */}
@@ -46,9 +48,8 @@ const Hero = () => {
       />
 
       {/* Floating decorative orbs */}
-      <div className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full bg-brand-cyan/10 blur-3xl animate-pulse-glow" />
-      <div className="pointer-events-none absolute -bottom-10 -left-20 h-48 w-48 rounded-full bg-brand-indigo/15 blur-3xl" />
-      <div className="pointer-events-none absolute top-1/2 left-1/3 h-56 w-56 rounded-full bg-brand-cyan/5 blur-3xl" />
+      <div className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full bg-brand-cyan/8 blur-3xl animate-pulse-glow" />
+      <div className="pointer-events-none absolute -bottom-10 -left-20 h-48 w-48 rounded-full bg-brand-indigo/10 blur-3xl" />
 
       <div className="relative mx-auto max-w-6xl px-6 pt-28 sm:pt-36 lg:pt-44 pb-16">
         <div className="flex flex-col items-center text-center">
@@ -89,7 +90,7 @@ const Hero = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.25 }}
-            className="mt-6 max-w-2xl font-sans-brand text-lg leading-relaxed text-white/60 sm:text-xl"
+            className="mt-6 max-w-2xl font-sans-brand text-lg leading-relaxed text-white/70 sm:text-xl"
           >
             Compare search providers head-to-head with real Information Retrieval
             metrics. No guesswork, no vibes &mdash; just science.
@@ -104,7 +105,7 @@ const Hero = () => {
           >
             <Link
               to="/dashboard"
-              className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-brand-cyan px-7 py-3.5 font-sans-brand text-sm font-semibold text-brand-navy shadow-lg shadow-brand-cyan/25 transition-all hover:shadow-brand-cyan/40 hover:brightness-110"
+              className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-brand-cyan px-7 py-3.5 font-sans-brand text-sm font-semibold text-brand-navy shadow-lg shadow-brand-cyan/20 transition-all hover:shadow-brand-cyan/30 hover:brightness-110"
             >
               <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               Start Evaluating
@@ -119,7 +120,7 @@ const Hero = () => {
               View on GitHub
               <ExternalLink className="h-4 w-4" />
               {starCount !== null && (
-                <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-white/80">
+                <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium text-white/80">
                   <Star className="h-3 w-3" />
                   {starCount.toLocaleString()}
                 </span>
@@ -138,9 +139,9 @@ const Hero = () => {
             <div className="glow-cyan relative rounded-2xl gradient-border bg-white/5 shadow-2xl shadow-brand-cyan/10 overflow-hidden">
               {/* Browser chrome top bar */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-white/5">
-                <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                <div className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
-                <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                <div className="h-2.5 w-2.5 rounded-full bg-rose-400/60" />
+                <div className="h-2.5 w-2.5 rounded-full bg-amber-400/60" />
+                <div className="h-2.5 w-2.5 rounded-full bg-emerald-400/60" />
               </div>
               <img
                 src="/gifs/05-dashboard.gif"

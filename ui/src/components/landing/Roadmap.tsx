@@ -63,7 +63,7 @@ const milestones: Milestone[] = [
 const iconContainerStyle: Record<Status, string> = {
   next: "bg-brand-cyan/20 text-brand-cyan glow-cyan",
   planned: "bg-brand-indigo/15 text-brand-indigo",
-  future: "bg-white/10 text-white/50",
+  future: "bg-white/10 text-white/60",
 };
 
 const dotStyle: Record<Status, string> = {
@@ -104,7 +104,7 @@ const MilestoneCard = ({
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.55, ease: "easeOut", delay: index * 0.08 }}
-      className="gradient-border rounded-2xl bg-white/[0.03] p-5 backdrop-blur-sm transition-all duration-300 hover:bg-white/[0.06] hover:shadow-lg hover:shadow-brand-cyan/5"
+      className="gradient-border rounded-2xl bg-white/[0.04] p-5 backdrop-blur-sm transition-all duration-300 hover:bg-white/[0.08] hover:shadow-lg hover:shadow-brand-cyan/5"
     >
       {/* Icon + badge row */}
       <div className="mb-3 flex items-center gap-3">
@@ -124,7 +124,7 @@ const MilestoneCard = ({
       <h3 className="font-sans-brand text-lg font-semibold text-white">
         {milestone.title}
       </h3>
-      <p className="mt-1.5 text-sm leading-relaxed text-white/50">
+      <p className="mt-1.5 text-sm leading-relaxed text-white/60">
         {milestone.description}
       </p>
     </motion.div>
@@ -138,14 +138,14 @@ const MilestoneCard = ({
 const Roadmap = () => (
   <section
     id="roadmap"
-    className="relative overflow-hidden bg-gradient-to-b from-brand-navy via-brand-navy/95 to-brand-navy py-24"
+    className="relative overflow-hidden bg-gradient-to-b from-brand-navy via-brand-navy to-brand-indigo/20 py-24"
   >
     {/* Neural network background */}
     <NeuralBackground
       nodeCount={50}
       connectionDistance={140}
       opacity={0.4}
-      secondaryColor="130, 120, 255"
+      secondaryColor="127, 107, 198"
     />
 
     <div className="relative mx-auto max-w-6xl px-6">
@@ -166,7 +166,7 @@ const Roadmap = () => (
             Headed
           </span>
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-base text-white/50">
+        <p className="mx-auto mt-4 max-w-2xl text-base text-white/60">
           {vision}
         </p>
       </motion.div>

@@ -79,7 +79,7 @@ const WhySentifish = () => (
           <motion.div
             key={title}
             variants={cardVariants}
-            className="gradient-border flex gap-5 rounded-2xl border border-border bg-card p-6 hover:shadow-xl hover:shadow-brand-indigo/5 hover:-translate-y-0.5 transition-all duration-300"
+            className="gradient-border flex gap-5 rounded-2xl border border-border bg-card p-6 hover:shadow-xl hover:shadow-brand-indigo/8 hover:-translate-y-0.5 transition-all duration-300"
           >
             <div className="glow-indigo flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-indigo/10 ring-1 ring-brand-indigo/20">
               <Icon className="h-5 w-5 text-brand-indigo" />
