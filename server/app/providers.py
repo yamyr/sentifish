@@ -138,9 +138,9 @@ class TinyfishProvider(SearchProvider):
     name = "tinyfish"
 
     async def search(self, query: str, top_k: int = 10) -> tuple[list[SearchResult], float]:
-        search_url = f"https://www.google.com/search?q={quote_plus(query)}"
+        search_url = f"https://duckduckgo.com/?q={quote_plus(query)}"
         goal = (
-            f"Extract the top {top_k} organic search results from this Google search page. "
+            f"Extract the top {top_k} organic search results from this DuckDuckGo search page. "
             "For each result return a JSON array of objects with keys: "
             '"url" (the link href), "title" (the link text), "snippet" (the description text). '
             "Return ONLY the JSON array, no other text."
