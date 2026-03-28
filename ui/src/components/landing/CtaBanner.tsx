@@ -1,12 +1,20 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, ExternalLink } from "lucide-react";
+import NeuralBackground from "./NeuralBackground";
 
 const CtaBanner = () => (
   <section className="relative overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-indigo py-20">
+    {/* Neural network background */}
+    <NeuralBackground
+      nodeCount={35}
+      connectionDistance={130}
+      opacity={0.35}
+    />
+
     {/* Subtle grid overlay */}
     <div
-      className="pointer-events-none absolute inset-0 opacity-[0.04]"
+      className="pointer-events-none absolute inset-0 opacity-[0.03]"
       style={{
         backgroundImage:
           "linear-gradient(hsl(var(--brand-cyan)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--brand-cyan)) 1px, transparent 1px)",
