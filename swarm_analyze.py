@@ -19,9 +19,9 @@ from urllib.parse import quote_plus
 import httpx
 
 # --- Config ---
-API_KEY = os.environ.get(
-    "TINYFISH_API_KEY", "***REDACTED***"
-)
+API_KEY = os.environ.get("TINYFISH_API_KEY")
+if not API_KEY:
+    raise RuntimeError("TINYFISH_API_KEY environment variable is required")
 SEARCH_URL = "https://agent.tinyfish.ai/v1/automation/run"  # sync endpoint (fast)
 SSE_URL = "https://agent.tinyfish.ai/v1/automation/run-sse"  # streaming for analysis
 SEARCH_TIMEOUT = 120.0

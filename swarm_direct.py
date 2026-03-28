@@ -14,9 +14,9 @@ from pathlib import Path
 import httpx
 
 API_URL = "https://agent.tinyfish.ai/v1/automation/run-sse"
-API_KEY = os.environ.get(
-    "TINYFISH_API_KEY", "***REDACTED***"
-)
+API_KEY = os.environ.get("TINYFISH_API_KEY")
+if not API_KEY:
+    raise RuntimeError("TINYFISH_API_KEY environment variable is required")
 TIMEOUT = 150.0
 CONCURRENCY = 25
 OUTPUT_DIR = Path("search_results")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 
 import httpx
@@ -14,9 +15,19 @@ from .models import EvalRun, RunStatus
 
 logger = logging.getLogger(__name__)
 
+_UUID_PATTERN = re.compile(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", re.IGNORECASE)
+
+
+def _validate_run_id(run_id: str) -> str:
+    """Ensure run_id is a valid UUID to prevent path traversal."""
+    if not _UUID_PATTERN.match(run_id):
+        raise ValueError(f"Invalid run_id format")
+    return run_id
+
 
 def _narration_dir(run_id: str) -> Path:
     """Return the directory where narration artifacts live for a run."""
+    _validate_run_id(run_id)
     return Path(settings.results_dir) / "narrations" / run_id
 
 
@@ -29,6 +40,7 @@ def _ensure_narration_dir(run_id: str) -> Path:
 
 def get_cached_text(run_id: str) -> str | None:
     """Return cached narration text, or None if not yet generated."""
+    _validate_run_id(run_id)
     p = _narration_dir(run_id) / "narration.json"
     try:
         if p.is_file():
@@ -41,6 +53,7 @@ def get_cached_text(run_id: str) -> str | None:
 
 def save_cached_text(run_id: str, text: str) -> None:
     """Persist narration text to disk."""
+    _validate_run_id(run_id)
     try:
         p = _ensure_narration_dir(run_id) / "narration.json"
         p.write_text(json.dumps({"text": text}))
@@ -51,6 +64,7 @@ def save_cached_text(run_id: str, text: str) -> None:
 
 def get_cached_audio(run_id: str) -> bytes | None:
     """Return cached MP3 audio bytes, or None if not yet synthesized."""
+    _validate_run_id(run_id)
     p = _narration_dir(run_id) / "narration.mp3"
     try:
         if p.is_file():
@@ -62,6 +76,7 @@ def get_cached_audio(run_id: str) -> bytes | None:
 
 def save_cached_audio(run_id: str, audio: bytes) -> None:
     """Persist MP3 audio to disk."""
+    _validate_run_id(run_id)
     try:
         p = _ensure_narration_dir(run_id) / "narration.mp3"
         p.write_bytes(audio)
