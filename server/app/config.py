@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     server_port: int = Field(default=4010, ge=1, le=65535)
 
     # CORS
-    cors_origins: str = "http://localhost:4010"
+    cors_origins: str = "http://localhost:4010,http://localhost:8080,http://localhost:3000"
 
     # Search provider API keys
     brave_api_key: str = ""

@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 228 24% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 228 24% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 24% 12%;
+
+    --primary: 243 75% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 20% 94%;
+    --secondary-foreground: 228 24% 12%;
+
+    --muted: 220 14% 92%;
+    --muted-foreground: 220 10% 46%;
+
+    --accent: 243 75% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 243 75% 55%;
+
+    --radius: 0.75rem;
+
+    --brand-navy: 228 24% 12%;
+    --brand-indigo: 243 75% 55%;
+    --brand-cyan: 192 85% 48%;
+    --success: 152 60% 42%;
+    --warning: 38 92% 50%;
+    --danger: 0 72% 51%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-mono-brand {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .font-sans-brand {
+    font-family: 'DM Sans', sans-serif;
+  }
+}
