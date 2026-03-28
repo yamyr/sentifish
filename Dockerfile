@@ -1,4 +1,12 @@
-# Python backend
+# Stage 1: Build the frontend
+FROM node:20-slim AS node-build
+WORKDIR /build
+COPY ui/package.json ui/package-lock.json* ./
+RUN npm install
+COPY ui/ ./
+RUN npm run build
+
+# Stage 2: Python backend
 FROM python:3.14-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
@@ -13,6 +21,9 @@ RUN uv sync --frozen --no-dev --no-editable
 # Copy server code and datasets
 COPY server/app/ app/
 COPY server/datasets/ datasets/
+
+# Copy built frontend from Stage 1
+COPY --from=node-build /build/dist /app/static
 
 # Run as non-root user
 RUN useradd --create-home --shell /bin/bash appuser \
