@@ -203,6 +203,12 @@ class TinyfishProvider(SearchProvider):
             logger.warning("TinyFish run failed: status=%s error=%s", data.get("status"), error_msg)
             return [], latency
 
+        result_data = data.get("result")
+        logger.info(
+            "TinyFish result type=%s preview=%.300s",
+            type(result_data).__name__,
+            str(result_data),
+        )
         results = _parse_tinyfish_results(data, top_k)
         return results, latency
 
