@@ -140,14 +140,13 @@ class TinyfishProvider(SearchProvider):
     async def search(self, query: str, top_k: int = 10) -> tuple[list[SearchResult], float]:
         search_url = f"https://duckduckgo.com/?q={quote_plus(query)}"
         goal = (
-            f"Extract the top {top_k} organic search results from this DuckDuckGo search page. "
-            "For each result return a JSON array of objects with keys: "
-            '"url" (the link href), "title" (the link text), "snippet" (the description text). '
-            "Return ONLY the JSON array, no other text."
+            f"Extract the top {top_k} search results from this page. "
+            "Return a JSON array where each item has: url, title, snippet."
         )
 
         start = time.perf_counter()
         results: list[SearchResult] = []
+        deadline = start + settings.tinyfish_timeout
 
         timeout = httpx.Timeout(settings.tinyfish_timeout, connect=10.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -163,8 +162,10 @@ class TinyfishProvider(SearchProvider):
                 stream.raise_for_status()
                 buffer = ""
                 async for chunk in stream.aiter_text():
+                    if time.perf_counter() > deadline:
+                        logger.warning("TinyFish wall-clock timeout for %r", query)
+                        break
                     buffer += chunk
-                    # Parse SSE events from buffer
                     while "\n\n" in buffer:
                         event_str, buffer = buffer.split("\n\n", 1)
                         data_line = ""
@@ -176,15 +177,10 @@ class TinyfishProvider(SearchProvider):
                         try:
                             event = json.loads(data_line)
                         except json.JSONDecodeError:
-                            logger.debug("TinyFish non-JSON SSE: %.200s", data_line)
                             continue
-                        event_type = event.get("type", "")
-                        logger.info(
-                            "TinyFish SSE event: type=%s keys=%s",
-                            event_type,
-                            list(event.keys()),
-                        )
-                        if event_type in ("COMPLETE", "complete", "COMPLETED"):
+                        event_type = event.get("type", "").upper()
+                        logger.info("TinyFish SSE: type=%s", event_type)
+                        if event_type in ("COMPLETE", "COMPLETED"):
                             results = _parse_tinyfish_results(event, top_k)
 
         latency = (time.perf_counter() - start) * 1000
