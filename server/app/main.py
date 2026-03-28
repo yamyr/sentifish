@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from rich.logging import RichHandler
 
 from .config import settings
+from .runner import load_persisted_runs
 from .views import router as views_router
 
 logging.basicConfig(
@@ -24,7 +25,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app):
     results_path = Path(settings.results_dir)
     results_path.mkdir(parents=True, exist_ok=True)
-    logger.info("Sentifish started — results dir: %s", results_path.resolve())
+    load_persisted_runs()
+    logger.info("Sentifish started — results dir: %s (%d runs loaded)", results_path.resolve(), len(list(results_path.glob("*.json"))))
     yield
     logger.info("Sentifish shutting down")
 

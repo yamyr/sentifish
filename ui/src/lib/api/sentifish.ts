@@ -86,7 +86,9 @@ export const sentifishApi = {
     apiFetch<{ providers: string[] }>("/api/providers").then((r) => r.providers),
 
   getDatasets: () =>
-    apiFetch<{ datasets: string[] }>("/api/datasets").then((r) => r.datasets),
+    apiFetch<{ datasets: (Dataset | string)[] }>("/api/datasets").then((r) =>
+      r.datasets.map((d) => (typeof d === "string" ? { name: d, description: "", cases: [] } : d))
+    ),
   createDataset: (dataset: Dataset) =>
     apiFetch<{ ok: boolean; name: string }>("/api/datasets", {
       method: "POST",

@@ -22,7 +22,7 @@ export default function StatCards() {
 
   const stats = useMemo(() => {
     const completedRuns = runs?.filter((r) => r.status === "completed") ?? [];
-    const allScores = completedRuns.flatMap((r) => r.scores ?? []);
+    const allScores = completedRuns.flatMap((r) => r.scores ?? []).filter(Boolean);
 
     // Total queries
     const totalQueries = allScores.length;
@@ -31,7 +31,7 @@ export default function StatCards() {
     let bestNdcg = 0;
     let bestNdcgProvider = "\u2014";
     for (const score of allScores) {
-      if (score.ndcg_at_k > bestNdcg) {
+      if ((score.ndcg_at_k ?? 0) > bestNdcg) {
         bestNdcg = score.ndcg_at_k;
         bestNdcgProvider = score.provider;
       }
