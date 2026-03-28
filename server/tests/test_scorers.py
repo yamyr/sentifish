@@ -99,7 +99,13 @@ class TestScoreQuery:
         returned = ["http://a.com", "http://b.com"]
         relevant = {"http://a.com"}
         result = score_query(returned, relevant, 2)
-        assert set(result.keys()) == {"precision_at_k", "recall_at_k", "ndcg_at_k", "mrr", "map_at_k"}
+        assert set(result.keys()) == {
+            "precision_at_k",
+            "recall_at_k",
+            "ndcg_at_k",
+            "mrr",
+            "map_at_k",
+        }
         assert all(isinstance(v, float) for v in result.values())
 
 
