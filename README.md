@@ -174,6 +174,25 @@ docker run -p 4010:4010 --env-file .env sentifish
 | Storage | In-memory + disk persistence |
 | Deploy | Docker, Railway |
 
+## Roadmap
+
+<p align="center">
+  <img src="assets/gifs/06-roadmap.gif" width="700" alt="Sentifish roadmap" />
+</p>
+<p align="center"><em>From search benchmarking to full agent observability</em></p>
+
+Sentifish today benchmarks search providers. The bigger vision is **observability for any AI agent's output** — think Datadog, but for agents.
+
+**LLM-as-Judge Scoring** — Semantic relevance scoring via OpenAI. Evaluate answer quality, not just URL matches. Catches cases where different URLs contain equally good content.
+
+**Agent Output Evaluation** — Beyond search: benchmark any web agent's task output for correctness and drift. Define expected outputs, run agents on schedule, score results automatically.
+
+**Drift Detection & Alerts** — Scheduled re-evaluation with auto-alerting when agent quality degrades over time. Catch silent failures before users do.
+
+**Self-Improving Baselines** — Feed failure context + last N successful runs to an LLM. Auto-classify real drift vs benign change, and adapt baselines without manual intervention.
+
+**Multi-Agent Arena** — Head-to-head comparison of browser agents (TinyFish, Browserbase, Multion, Steel) on identical tasks, scored with the same metrics framework.
+
 ## Research
 
 The `docs/research/` directory contains 47 research files on agentic frameworks, evaluation methods, and observability — the background research that shaped Sentifish's design.
