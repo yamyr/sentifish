@@ -15,18 +15,19 @@ import {
 import { TrendingUp } from "lucide-react";
 
 const PROVIDER_STROKE: Record<string, string> = {
-  brave: "hsl(243 75% 55%)",
-  serper: "hsl(192 85% 48%)",
-  tavily: "hsl(38 92% 50%)",
-  tinyfish: "hsl(152 60% 42%)",
+  brave: "hsl(255 45% 60%)",
+  serper: "hsl(172 50% 40%)",
+  tavily: "hsl(40 75% 55%)",
+  exa: "hsl(0 60% 55%)",
+  tinyfish: "hsl(158 45% 45%)",
 };
 
 const MOCK_TREND = [
-  { run: "Run 1", brave: 0.78, serper: 0.74, tavily: 0.82, tinyfish: 0.8 },
-  { run: "Run 2", brave: 0.81, serper: 0.77, tavily: 0.85, tinyfish: 0.83 },
-  { run: "Run 3", brave: 0.83, serper: 0.79, tavily: 0.87, tinyfish: 0.86 },
-  { run: "Run 4", brave: 0.84, serper: 0.8, tavily: 0.89, tinyfish: 0.88 },
-  { run: "Run 5", brave: 0.82, serper: 0.81, tavily: 0.88, tinyfish: 0.87 },
+  { run: "Run 1", brave: 0.78, serper: 0.74, tavily: 0.82, exa: 0.85, tinyfish: 0.8 },
+  { run: "Run 2", brave: 0.81, serper: 0.77, tavily: 0.85, exa: 0.86, tinyfish: 0.83 },
+  { run: "Run 3", brave: 0.83, serper: 0.79, tavily: 0.87, exa: 0.87, tinyfish: 0.86 },
+  { run: "Run 4", brave: 0.84, serper: 0.8, tavily: 0.89, exa: 0.88, tinyfish: 0.88 },
+  { run: "Run 5", brave: 0.82, serper: 0.81, tavily: 0.88, exa: 0.86, tinyfish: 0.87 },
 ];
 
 export default function TrendChart() {
@@ -40,7 +41,7 @@ export default function TrendChart() {
     if (completedRuns.length < 2) {
       return {
         chartData: MOCK_TREND,
-        providerKeys: ["brave", "serper", "tavily", "tinyfish"],
+        providerKeys: ["brave", "serper", "tavily", "exa", "tinyfish"],
         isLive: false,
       };
     }
@@ -81,24 +82,26 @@ export default function TrendChart() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.2 }}
     >
-      <Card>
+      <Card className="gradient-border">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-brand-cyan" />
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-cyan/10 ring-1 ring-brand-cyan/20">
+                <TrendingUp className="h-4 w-4 text-brand-cyan" />
+              </div>
               <CardTitle className="font-sans-brand text-lg">
                 NDCG@K Trend
               </CardTitle>
             </div>
             {!isLive && (
-              <span className="text-xs text-muted-foreground italic">
-                Sample data -- needs 2+ completed runs
+              <span className="rounded-full bg-warning/10 px-3 py-1 text-xs font-medium text-warning ring-1 ring-warning/20">
+                Sample data
               </span>
             )}
           </div>
         </CardHeader>
         <CardContent>
-          <div className="h-72 w-full">
+          <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={chartData}
@@ -106,18 +109,18 @@ export default function TrendChart() {
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="hsl(220 13% 88%)"
+                  stroke="hsl(210 20% 90%)"
                   vertical={false}
                 />
                 <XAxis
                   dataKey="run"
-                  tick={{ fontSize: 12, fill: "hsl(220 10% 46%)" }}
-                  axisLine={{ stroke: "hsl(220 13% 88%)" }}
+                  tick={{ fontSize: 12, fill: "hsl(215 15% 48%)" }}
+                  axisLine={{ stroke: "hsl(210 20% 90%)" }}
                   tickLine={false}
                 />
                 <YAxis
                   domain={[0, 1]}
-                  tick={{ fontSize: 12, fill: "hsl(220 10% 46%)" }}
+                  tick={{ fontSize: 12, fill: "hsl(215 15% 48%)" }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v: number) => v.toFixed(1)}
@@ -125,7 +128,7 @@ export default function TrendChart() {
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "hsl(0 0% 100%)",
-                    border: "1px solid hsl(220 13% 88%)",
+                    border: "1px solid hsl(210 20% 90%)",
                     borderRadius: "8px",
                     fontSize: "12px",
                     fontFamily: "'JetBrains Mono', monospace",
@@ -144,9 +147,9 @@ export default function TrendChart() {
                     key={key}
                     type="monotone"
                     dataKey={key}
-                    stroke={PROVIDER_STROKE[key] ?? "hsl(220 10% 46%)"}
-                    strokeWidth={2}
-                    dot={{ r: 4, strokeWidth: 2 }}
+                    stroke={PROVIDER_STROKE[key] ?? "hsl(215 15% 48%)"}
+                    strokeWidth={2.5}
+                    dot={{ r: 5, strokeWidth: 2, fill: "hsl(210 40% 99%)" }}
                     activeDot={{ r: 6 }}
                   />
                 ))}

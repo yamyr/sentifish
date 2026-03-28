@@ -21,25 +21,30 @@ export default function DashboardHeader({ onNewRun }: DashboardHeaderProps) {
       <div className="space-y-1">
         <div className="flex items-center gap-3">
           <h1 className="font-sans-brand text-3xl font-bold tracking-tight text-foreground">
-            Web Search Agent Evals
+            Web Search Agent{" "}
+            <span className="bg-gradient-to-r from-brand-cyan to-brand-indigo bg-clip-text text-transparent">
+              Evals
+            </span>
           </h1>
           {isLoading ? (
-            <Badge variant="secondary" className="gap-1">
+            <Badge variant="secondary" className="gap-1 ring-1 ring-brand-cyan/20">
               <Loader2 className="h-3 w-3 animate-spin" />
               Loading
             </Badge>
           ) : (
-            <Badge variant="secondary" className="font-mono-brand">
+            <Badge variant="secondary" className="font-mono-brand ring-1 ring-brand-cyan/20">
               {providers?.length ?? 0} providers
             </Badge>
           )}
         </div>
         <p className="text-sm text-muted-foreground max-w-xl">
-          Benchmark search providers with IR metrics. Compare precision, recall,
-          NDCG, MRR, and latency across Brave, Serper, Tavily, and TinyFish.
+          Benchmark search providers with IR metrics. Compare NDCG, MAP,
+          Recall, Content Depth, and Latency across Brave, Serper, Tavily, Exa,
+          and TinyFish.
         </p>
       </div>
-      <Button onClick={onNewRun} className="gap-2 shrink-0">
+      <Button onClick={onNewRun} className="relative overflow-hidden gap-2 shrink-0">
+        <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         <Plus className="h-4 w-4" />
         New Evaluation Run
       </Button>
