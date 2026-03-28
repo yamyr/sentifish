@@ -59,7 +59,7 @@ const WhySentifish = () => (
           Why
         </p>
         <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground sm:text-4xl">
-          Why Sentifish?
+          Why <span className="bg-gradient-to-r from-brand-cyan to-brand-indigo bg-clip-text text-transparent">Sentifish?</span>
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
           Built for engineers who need data, not opinions, when choosing a
@@ -79,9 +79,9 @@ const WhySentifish = () => (
           <motion.div
             key={title}
             variants={cardVariants}
-            className="flex gap-5 rounded-2xl border border-border bg-card p-6 transition-shadow hover:shadow-lg"
+            className="gradient-border flex gap-5 rounded-2xl border border-border bg-card p-6 hover:shadow-xl hover:shadow-brand-indigo/5 hover:-translate-y-0.5 transition-all duration-300"
           >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-indigo/10 ring-1 ring-brand-indigo/20">
+            <div className="glow-indigo flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-indigo/10 ring-1 ring-brand-indigo/20">
               <Icon className="h-5 w-5 text-brand-indigo" />
             </div>
             <div>
