@@ -15,10 +15,10 @@ import {
 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
-  completed: "bg-success/15 text-success border-success/30",
-  running: "bg-brand-cyan/15 text-brand-cyan border-brand-cyan/30",
-  failed: "bg-danger/15 text-danger border-danger/30",
-  pending: "bg-muted text-muted-foreground border-border",
+  completed: "bg-success/15 text-success border-success/30 font-mono-brand",
+  running: "bg-brand-cyan/15 text-brand-cyan border-brand-cyan/30 font-mono-brand",
+  failed: "bg-danger/15 text-danger border-danger/30 font-mono-brand",
+  pending: "bg-muted text-muted-foreground border-border font-mono-brand",
 };
 
 function formatTimestamp(ts: number): string {
@@ -68,16 +68,18 @@ export default function RecentRuns() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.25 }}
     >
-      <Card>
+      <Card className="gradient-border">
         <CardHeader className="pb-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <ListChecks className="h-5 w-5 text-success" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success/10 ring-1 ring-success/20">
+                <ListChecks className="h-4 w-4 text-success" />
+              </div>
               <CardTitle className="font-sans-brand text-lg">
                 Recent Runs
               </CardTitle>
               {runs && (
-                <Badge variant="secondary" className="font-mono-brand text-xs">
+                <Badge variant="secondary" className="font-mono-brand text-xs ring-1 ring-success/20">
                   {runs.length}
                 </Badge>
               )}
@@ -88,7 +90,7 @@ export default function RecentRuns() {
                 placeholder="Filter by dataset, provider..."
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="pl-9 text-sm"
+                className="pl-9 text-sm bg-secondary/50 focus-visible:ring-brand-cyan/30"
               />
             </div>
           </div>
@@ -116,7 +118,7 @@ export default function RecentRuns() {
                   <motion.div
                     key={run.id}
                     layout
-                    className="rounded-lg border bg-card transition-colors hover:bg-secondary/40"
+                    className="rounded-lg border bg-card transition-colors hover:bg-brand-cyan/[0.03]"
                   >
                     <button
                       type="button"
@@ -189,7 +191,9 @@ export default function RecentRuns() {
                                 <th className="text-right py-1 pr-3 font-medium">P@K</th>
                                 <th className="text-right py-1 pr-3 font-medium">R@K</th>
                                 <th className="text-right py-1 pr-3 font-medium">NDCG</th>
+                                <th className="text-right py-1 pr-3 font-medium">MAP</th>
                                 <th className="text-right py-1 pr-3 font-medium">MRR</th>
+                                <th className="text-right py-1 pr-3 font-medium">Depth</th>
                                 <th className="text-right py-1 font-medium">Latency</th>
                               </tr>
                             </thead>
@@ -206,7 +210,9 @@ export default function RecentRuns() {
                                   <td className="py-1.5 pr-3 text-right">{s.precision_at_k.toFixed(3)}</td>
                                   <td className="py-1.5 pr-3 text-right">{s.recall_at_k.toFixed(3)}</td>
                                   <td className="py-1.5 pr-3 text-right">{s.ndcg_at_k.toFixed(3)}</td>
+                                  <td className="py-1.5 pr-3 text-right">{(s.map_at_k ?? 0).toFixed(3)}</td>
                                   <td className="py-1.5 pr-3 text-right">{s.mrr.toFixed(3)}</td>
+                                  <td className="py-1.5 pr-3 text-right">{(s.content_depth ?? 0).toFixed(3)}</td>
                                   <td className="py-1.5 text-right">{Math.round(s.latency_ms)}ms</td>
                                 </tr>
                               ))}

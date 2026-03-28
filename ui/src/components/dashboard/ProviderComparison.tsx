@@ -104,17 +104,19 @@ export default function ProviderComparison() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.15 }}
     >
-      <Card>
+      <Card className="gradient-border">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-brand-indigo" />
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-indigo/10 ring-1 ring-brand-indigo/20">
+                <BarChart3 className="h-4 w-4 text-brand-indigo" />
+              </div>
               <CardTitle className="font-sans-brand text-lg">
                 Provider Comparison
               </CardTitle>
             </div>
             {!isLive && (
-              <span className="text-xs text-muted-foreground italic">
+              <span className="rounded-full bg-warning/10 px-3 py-1 text-xs font-medium text-warning ring-1 ring-warning/20">
                 Sample data -- run an evaluation to see live results
               </span>
             )}
@@ -126,7 +128,7 @@ export default function ProviderComparison() {
             {providers.map((p) => (
               <div key={p} className="flex items-center gap-2">
                 <div
-                  className={`h-3 w-3 rounded-full ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"}`}
+                  className={`h-3.5 w-3.5 rounded-full ring-2 ring-offset-2 ring-offset-card ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"} ${PROVIDER_COLORS[p] ? PROVIDER_COLORS[p].replace("bg-", "ring-") : "ring-muted-foreground"}`}
                 />
                 <span className="text-sm font-medium capitalize">{p}</span>
               </div>
@@ -143,18 +145,25 @@ export default function ProviderComparison() {
                 <div className="space-y-1.5">
                   {providers.map((p) => {
                     const val = metrics[p][key];
+                    const pct = val * 100;
                     return (
                       <div key={p} className="flex items-center gap-3">
-                        <span className="w-16 text-right text-xs font-medium capitalize text-muted-foreground">
+                        <span className="w-16 text-right text-sm font-medium font-sans-brand capitalize text-muted-foreground">
                           {p}
                         </span>
-                        <div className="flex-1 h-5 rounded-full bg-secondary overflow-hidden">
+                        <div className="relative flex-1 h-6 rounded-full bg-secondary/70 overflow-hidden">
                           <motion.div
                             className={`h-full rounded-full ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"}`}
                             initial={{ width: 0 }}
-                            animate={{ width: `${val * 100}%` }}
+                            animate={{ width: `${pct}%` }}
                             transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
-                          />
+                          >
+                            {pct > 30 && (
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 font-mono-brand text-[10px] font-bold text-white/90">
+                                {val.toFixed(2)}
+                              </span>
+                            )}
+                          </motion.div>
                         </div>
                         <span className="w-12 text-right font-mono-brand text-xs font-semibold">
                           {val.toFixed(2)}
@@ -182,9 +191,9 @@ export default function ProviderComparison() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.2 }}
-                    className="rounded-lg border bg-secondary/50 p-3 text-center"
+                    className="gradient-border rounded-lg border bg-secondary/50 p-3 text-center hover:shadow-sm transition-shadow"
                   >
-                    <p className={`font-mono-brand text-lg font-bold ${PROVIDER_TEXT_COLORS[p] ?? "text-foreground"}`}>
+                    <p className={`font-mono-brand text-xl font-bold ${PROVIDER_TEXT_COLORS[p] ?? "text-foreground"}`}>
                       {display}
                     </p>
                     <p className="text-xs text-muted-foreground capitalize">{p}</p>

@@ -22,17 +22,18 @@ export default function InsightCard() {
     // Aggregate across all completed runs
     const agg: Record<
       string,
-      { ndcg: number[]; map: number[]; recall: number[] }
+      { ndcg: number[]; map: number[]; recall: number[]; depth: number[] }
     > = {};
 
     for (const run of completedRuns) {
       for (const score of run.scores) {
         if (!agg[score.provider]) {
-          agg[score.provider] = { ndcg: [], map: [], recall: [] };
+          agg[score.provider] = { ndcg: [], map: [], recall: [], depth: [] };
         }
         agg[score.provider].ndcg.push(score.ndcg_at_k);
         agg[score.provider].map.push(score.map_at_k ?? 0);
         agg[score.provider].recall.push(score.recall_at_k);
+        agg[score.provider].depth.push(score.content_depth ?? 0);
       }
     }
 
@@ -91,10 +92,25 @@ export default function InsightCard() {
       );
     }
 
+    // Best Content Depth
+    let bestDepthProvider = "";
+    let bestDepth = -1;
+    for (const [provider, data] of Object.entries(agg)) {
+      const avgDepth = mean(data.depth);
+      if (avgDepth > bestDepth) {
+        bestDepth = avgDepth;
+        bestDepthProvider = provider;
+      }
+    }
+    if (bestDepthProvider) {
+      parts.push(`${cap(bestDepthProvider)} delivers the richest content depth at ${bestDepth.toFixed(3)}`);
+    }
+
     const text =
       parts.slice(0, 2).join(", ") +
       "." +
       (parts.length > 2 ? ` ${parts[2]}.` : "") +
+      (parts.length > 3 ? ` ${parts[3]}.` : "") +
       ` Based on ${completedRuns.length} completed evaluation${completedRuns.length > 1 ? "s" : ""}.`;
 
     return { text, hasData: true };
@@ -106,14 +122,14 @@ export default function InsightCard() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.3 }}
     >
-      <Card className="border-brand-indigo/20 bg-brand-indigo/[0.03]">
+      <Card className="gradient-border bg-gradient-to-r from-brand-indigo/[0.04] to-brand-cyan/[0.04]">
         <CardContent className="flex items-start gap-3 p-5">
-          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-indigo/10">
+          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-indigo/10 glow-indigo ring-1 ring-brand-indigo/20">
             <Sparkles className="h-4 w-4 text-brand-indigo" />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-brand-indigo mb-1">
-              Insight
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1">
+              <span className="bg-gradient-to-r from-brand-indigo to-brand-cyan bg-clip-text text-transparent">Insight</span>
             </p>
             <p className="text-sm leading-relaxed text-foreground">
               {insight.text}
