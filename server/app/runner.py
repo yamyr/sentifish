@@ -117,15 +117,15 @@ async def execute_run(
     for case in dataset.cases:
         relevant = set(case.relevant_urls)
         for provider in providers:
-            tasks.append(limited_eval(provider, case.query, relevant))
+            tasks.append(asyncio.create_task(limited_eval(provider, case.query, relevant)))
 
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    for result in results:
-        if isinstance(result, Exception):
-            logger.error("Eval task error: %s", result)
-            continue
-        run.scores.append(result)
+    # Stream scores as they complete instead of waiting for all
+    for coro in asyncio.as_completed(tasks):
+        try:
+            result = await coro
+            run.scores.append(result)
+        except Exception as exc:
+            logger.error("Eval task error: %s", exc)
 
     run.status = RunStatus.COMPLETED
     run.completed_at = time.time()
