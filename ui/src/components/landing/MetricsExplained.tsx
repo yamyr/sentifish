@@ -1,134 +1,149 @@
 import { motion } from "framer-motion";
-import { Target, ListChecks, TrendingUp, Search, Timer } from "lucide-react";
+import {
+  Target,
+  ListChecks,
+  TrendingUp,
+  Search,
+  Timer,
+  type LucideIcon,
+} from "lucide-react";
 
-const metrics = [
+interface Metric {
+  name: string;
+  explanation: string;
+  Icon: LucideIcon;
+  color: string;
+}
+
+const metrics: Metric[] = [
   {
     name: "Precision@K",
-    question: "How many top results are relevant?",
-    detail:
-      "Of the first K results returned, what fraction are actually useful? High precision means less noise in your results.",
+    explanation:
+      "Of the top K results, what fraction are actually relevant? High precision means less noise.",
     Icon: Target,
-    accent: "brand-indigo",
-    bgClass: "bg-brand-indigo/10",
-    textClass: "text-brand-indigo",
-    ringClass: "ring-brand-indigo/20",
+    color: "brand-indigo",
   },
   {
     name: "Recall@K",
-    question: "How many relevant results did we find?",
-    detail:
-      "Of all the relevant documents that exist, how many appear in the top K? High recall means nothing important is missed.",
+    explanation:
+      "Of all relevant documents that exist, how many appear in the top K? High recall means nothing important is missed.",
     Icon: ListChecks,
-    accent: "brand-cyan",
-    bgClass: "bg-brand-cyan/10",
-    textClass: "text-brand-cyan",
-    ringClass: "ring-brand-cyan/20",
+    color: "brand-cyan",
   },
   {
     name: "NDCG@K",
-    question: "Are the best results ranked highest?",
-    detail:
-      "Normalized Discounted Cumulative Gain measures whether the most relevant documents appear near the top of the list.",
+    explanation:
+      "Are the most relevant documents ranked near the top? Measures whether the best results appear first.",
     Icon: TrendingUp,
-    accent: "success",
-    bgClass: "bg-success/10",
-    textClass: "text-success",
-    ringClass: "ring-success/20",
+    color: "success",
   },
   {
     name: "MRR",
-    question: "How quickly do you find the first good result?",
-    detail:
-      "Mean Reciprocal Rank tells you how far down you have to scroll before hitting the first relevant result.",
+    explanation:
+      "How far down do you scroll before hitting the first relevant result? Lower is better.",
     Icon: Search,
-    accent: "warning",
-    bgClass: "bg-warning/10",
-    textClass: "text-warning",
-    ringClass: "ring-warning/20",
+    color: "warning",
   },
   {
     name: "Latency",
-    question: "How fast does the provider respond?",
-    detail:
-      "End-to-end response time in milliseconds. Because relevance means nothing if your users are waiting.",
+    explanation:
+      "End-to-end response time in milliseconds. Relevance means nothing if users are waiting.",
     Icon: Timer,
-    accent: "danger",
-    bgClass: "bg-destructive/10",
-    textClass: "text-destructive",
-    ringClass: "ring-destructive/20",
+    color: "destructive",
   },
 ];
 
-const containerVariants = {
-  hidden: {},
-  visible: {
-    transition: { staggerChildren: 0.08 },
+const colorMap: Record<string, { bg: string; ring: string; text: string }> = {
+  "brand-indigo": {
+    bg: "bg-brand-indigo/10",
+    ring: "ring-brand-indigo/20",
+    text: "text-brand-indigo",
   },
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.45, ease: "easeOut" as const },
+  "brand-cyan": {
+    bg: "bg-brand-cyan/10",
+    ring: "ring-brand-cyan/20",
+    text: "text-brand-cyan",
+  },
+  success: {
+    bg: "bg-success/10",
+    ring: "ring-success/20",
+    text: "text-success",
+  },
+  warning: {
+    bg: "bg-warning/10",
+    ring: "ring-warning/20",
+    text: "text-warning",
+  },
+  destructive: {
+    bg: "bg-destructive/10",
+    ring: "ring-destructive/20",
+    text: "text-destructive",
   },
 };
 
 const MetricsExplained = () => (
-  <section className="bg-background py-24">
+  <section id="metrics" className="bg-background py-24">
     <div className="mx-auto max-w-6xl px-6">
-      {/* Section header */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-80px" }}
-        transition={{ duration: 0.5 }}
-        className="mb-14 text-center"
-      >
-        <p className="font-mono-brand text-[11px] uppercase tracking-[0.2em] text-brand-cyan">
-          Metrics
-        </p>
-        <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground sm:text-4xl">
-          What We Measure
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-          Standard Information Retrieval metrics used by researchers and
-          engineers worldwide.
-        </p>
-      </motion.div>
+      <div className="grid gap-12 md:grid-cols-5 md:items-start">
+        {/* Left column — section header */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5 }}
+          className="md:col-span-2 md:sticky md:top-24"
+        >
+          <p className="font-mono-brand text-[11px] uppercase tracking-[0.2em] text-brand-cyan">
+            Metrics
+          </p>
+          <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground">
+            What We Measure
+          </h2>
+          <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+            Standard Information Retrieval metrics used by researchers and
+            engineers worldwide.
+          </p>
+        </motion.div>
 
-      {/* Metrics grid */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-60px" }}
-        className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        {metrics.map(({ name, question, detail, Icon, bgClass, textClass, ringClass }) => (
-          <motion.div
-            key={name}
-            variants={cardVariants}
-            className="rounded-2xl border border-border bg-card p-6 transition-shadow hover:shadow-lg"
-          >
-            <div
-              className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${bgClass} ring-1 ${ringClass}`}
-            >
-              <Icon className={`h-5 w-5 ${textClass}`} />
-            </div>
-            <h3 className="font-mono-brand text-sm font-semibold text-foreground">
-              {name}
-            </h3>
-            <p className="mt-1.5 font-sans-brand text-base font-medium text-foreground">
-              {question}
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              {detail}
-            </p>
-          </motion.div>
-        ))}
-      </motion.div>
+        {/* Right column — metric rows */}
+        <div className="md:col-span-3">
+          {metrics.map(({ name, explanation, Icon, color }, index) => {
+            const { bg, ring, text } = colorMap[color];
+
+            return (
+              <motion.div
+                key={name}
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{
+                  duration: 0.4,
+                  delay: index * 0.08,
+                  ease: "easeOut",
+                }}
+                className={`flex items-start gap-4 py-5${
+                  index < metrics.length - 1 ? " border-b border-border" : ""
+                }`}
+              >
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${bg} ring-1 ${ring}`}
+                >
+                  <Icon className={`h-5 w-5 ${text}`} />
+                </div>
+
+                <div>
+                  <h3 className="font-mono-brand text-sm font-semibold text-foreground">
+                    {name}
+                  </h3>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {explanation}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   </section>
 );

@@ -57,7 +57,7 @@ const cardVariants = {
 };
 
 const ProviderShowcase = () => (
-  <section className="bg-background py-24">
+  <section id="providers" className="bg-background py-24">
     <div className="mx-auto max-w-6xl px-6">
       {/* Section header */}
       <motion.div
