@@ -46,8 +46,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 app.include_router(views_router)
@@ -66,7 +66,9 @@ if static_dir.is_dir():
     # Catch-all for SPA routing — must come AFTER API routes
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        file_path = static_dir / full_path
+        file_path = (static_dir / full_path).resolve()
+        if not file_path.is_relative_to(static_dir.resolve()):
+            return FileResponse(static_dir / "index.html")
         if file_path.is_file():
             return FileResponse(file_path)
         return FileResponse(static_dir / "index.html")

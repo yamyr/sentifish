@@ -14,9 +14,9 @@ from urllib.parse import quote_plus
 
 import httpx
 
-API_KEY = os.environ.get(
-    "TINYFISH_API_KEY", "***REDACTED***"
-)
+API_KEY = os.environ.get("TINYFISH_API_KEY")
+if not API_KEY:
+    raise RuntimeError("TINYFISH_API_KEY environment variable is required")
 SSE_URL = "https://agent.tinyfish.ai/v1/automation/run-sse"
 TIMEOUT = 180.0
 CONCURRENCY = 10

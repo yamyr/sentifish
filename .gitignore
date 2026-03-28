@@ -14,3 +14,9 @@ htmlcov/
 results/
 node_modules/
 portal/
+
+# Prevent accidental secret commits
+*.env.local
+*.env.production
+.env.*
+!env.sample
