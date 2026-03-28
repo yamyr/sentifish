@@ -94,39 +94,42 @@ def generate_narration(run: EvalRun) -> str:
         f"with {num_queries} queries across {provider_list}."
     )
 
-    # Per-provider metrics
+    # Per-provider metrics (NDCG, MAP, Recall)
     for provider, metrics in summary.items():
-        precision = metrics.get("mean_precision_at_k", 0.0)
-        recall = metrics.get("mean_recall_at_k", 0.0)
         ndcg = metrics.get("mean_ndcg_at_k", 0.0)
-        mrr = metrics.get("mean_mrr", 0.0)
-        latency = metrics.get("mean_latency_ms", 0.0)
+        map_score = metrics.get("mean_map_at_k", 0.0)
+        recall = metrics.get("mean_recall_at_k", 0.0)
 
         lines.append(
-            f"{provider.capitalize()} achieved a precision of {precision:.2f}, "
-            f"recall of {recall:.2f}, NDCG of {ndcg:.2f}, and MRR of {mrr:.2f}, "
-            f"with an average latency of {latency:.0f} milliseconds."
+            f"{provider.capitalize()} achieved an NDCG of {ndcg:.2f}, "
+            f"MAP of {map_score:.2f}, and recall of {recall:.2f}."
         )
 
     # Comparative insight
     best_ndcg_provider = max(summary, key=lambda p: summary[p].get("mean_ndcg_at_k", 0.0))
-    fastest_provider = min(summary, key=lambda p: summary[p].get("mean_latency_ms", float("inf")))
+    best_map_provider = max(summary, key=lambda p: summary[p].get("mean_map_at_k", 0.0))
+    best_recall_provider = max(summary, key=lambda p: summary[p].get("mean_recall_at_k", 0.0))
 
     best_ndcg = summary[best_ndcg_provider]["mean_ndcg_at_k"]
-    fastest_latency = summary[fastest_provider]["mean_latency_ms"]
+    best_map = summary[best_map_provider]["mean_map_at_k"]
 
-    if best_ndcg_provider == fastest_provider:
+    if best_ndcg_provider == best_map_provider:
         lines.append(
-            f"Overall, {best_ndcg_provider.capitalize()} leads in both relevance and speed, "
-            f"with the highest NDCG of {best_ndcg:.2f} and the lowest latency of "
-            f"{fastest_latency:.0f} milliseconds."
+            f"Overall, {best_ndcg_provider.capitalize()} leads on both ranking quality "
+            f"and precision, with the highest NDCG of {best_ndcg:.2f} and MAP of {best_map:.2f}."
         )
     else:
         lines.append(
-            f"Overall, {best_ndcg_provider.capitalize()} delivered the best relevance "
-            f"with an NDCG of {best_ndcg:.2f}, while {fastest_provider.capitalize()} "
-            f"was the fastest at {fastest_latency:.0f} milliseconds. "
-            f"This presents a classic tradeoff between quality and speed."
+            f"Overall, {best_ndcg_provider.capitalize()} delivered the best ranking quality "
+            f"with an NDCG of {best_ndcg:.2f}, while {best_map_provider.capitalize()} "
+            f"achieved the highest precision with a MAP of {best_map:.2f}."
+        )
+
+    if best_recall_provider not in (best_ndcg_provider, best_map_provider):
+        best_recall = summary[best_recall_provider]["mean_recall_at_k"]
+        lines.append(
+            f"{best_recall_provider.capitalize()} showed the strongest coverage "
+            f"with a recall of {best_recall:.2f}."
         )
 
     return " ".join(lines)
