@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
     tinyfish_api_key: str = ""
 
+    # ElevenLabs TTS
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "JBFqnCBsd6RMkjVDRZzb"  # "George" — clear, professional
+    elevenlabs_model_id: str = "eleven_multilingual_v2"
+
     # Results storage
     results_dir: str = "./results"
 

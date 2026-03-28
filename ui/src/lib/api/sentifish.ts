@@ -108,4 +108,10 @@ export const sentifishApi = {
     apiFetch<{ id: string; dataset_name: string; status: string; summary: RunSummary }>(
       `/api/runs/${id}/summary`
     ),
+
+  getNarrationText: (runId: string) =>
+    apiFetch<{ text: string }>(`/api/runs/${runId}/narration/text`),
+
+  getNarrationAudioUrl: (runId: string) =>
+    `${API_BASE}/api/runs/${runId}/narration/audio`,
 };
