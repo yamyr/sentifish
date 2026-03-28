@@ -39,8 +39,8 @@ export default function DashboardHeader({ onNewRun }: DashboardHeaderProps) {
         </div>
         <p className="text-sm text-muted-foreground max-w-xl">
           Benchmark search providers with IR metrics. Compare NDCG, MAP,
-          Recall, Content Depth, and Latency across Brave, Serper, Tavily, Exa,
-          and TinyFish.
+          Recall, Content Depth, and Latency across Brave, Serper, SerpAPI,
+          Tavily, Exa, and TinyFish.
         </p>
       </div>
       <Button onClick={onNewRun} className="relative overflow-hidden gap-2 shrink-0">

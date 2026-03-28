@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { sentifishApi, type EvalRunRequest } from "@/lib/api/sentifish";
+import { sentifishApi, type EvalRunRequest, type MultiEvalRunRequest } from "@/lib/api/sentifish";
 
 export function useProviders() {
   return useQuery({
@@ -52,6 +52,17 @@ export function useTriggerRun() {
     },
   });
 }
+
+export function useTriggerMultiRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (req: MultiEvalRunRequest) => sentifishApi.triggerMultiRun(req),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["runs"] });
+    },
+  });
+}
+
 
 export function useHealth() {
   return useQuery({

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Shield, Zap, Globe, Fish, Trophy, type LucideIcon } from "lucide-react";
+import { Shield, Zap, Globe, Fish, Trophy, Search, Compass, type LucideIcon } from "lucide-react";
 
 // TODO: fetch from /api/runs/latest
 
@@ -18,7 +18,9 @@ interface Benchmark {
 const benchmarks: Benchmark[] = [
   { name: "Brave", ndcg: 0.82, map: 0.79, recall: 0.74, contentDepth: 0.35, latency: 320, color: "brand-indigo", Icon: Shield },
   { name: "Serper", ndcg: 0.89, map: 0.85, recall: 0.80, contentDepth: 0.40, latency: 245, color: "brand-cyan", Icon: Zap },
+  { name: "SerpAPI", ndcg: 0.87, map: 0.83, recall: 0.79, contentDepth: 0.38, latency: 280, color: "primary", Icon: Search },
   { name: "Tavily", ndcg: 0.85, map: 0.82, recall: 0.78, contentDepth: 0.45, latency: 410, color: "warning", Icon: Globe },
+  { name: "Exa", ndcg: 0.86, map: 0.84, recall: 0.81, contentDepth: 0.52, latency: 380, color: "destructive", Icon: Compass },
   { name: "TinyFish", ndcg: 0.78, map: 0.73, recall: 0.76, contentDepth: 0.92, latency: 1850, color: "success", Icon: Fish },
 ];
 
@@ -337,7 +339,7 @@ const BenchmarkTable = () => (
           Benchmarks
         </p>
         <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground sm:text-4xl">
-          Four Providers,{" "}
+          Six Providers,{" "}
           <span className="bg-gradient-to-r from-brand-cyan to-brand-indigo bg-clip-text text-transparent">
             One Benchmark
           </span>

@@ -1,0 +1,79 @@
+{
+  "name": "developer-tools",
+  "description": "Common developer searches across popular frameworks, databases, and infrastructure tools",
+  "cases": [
+    {
+      "query": "React useEffect cleanup function",
+      "relevant_urls": [
+        "https://react.dev/reference/react/useEffect",
+        "https://react.dev/learn/synchronizing-with-effects#how-to-handle-the-effect-firing-twice-in-development",
+        "https://www.digitalocean.com/community/tutorials/how-to-handle-async-data-loading-lazy-loading-and-code-splitting-with-react"
+      ],
+      "tags": ["react", "hooks", "frontend"]
+    },
+    {
+      "query": "Docker compose networking between containers",
+      "relevant_urls": [
+        "https://docs.docker.com/compose/networking/",
+        "https://docs.docker.com/network/",
+        "https://www.digitalocean.com/community/tutorials/how-to-communicate-between-docker-containers"
+      ],
+      "tags": ["docker", "networking", "containers"]
+    },
+    {
+      "query": "PostgreSQL index optimization guide",
+      "relevant_urls": [
+        "https://www.postgresql.org/docs/current/indexes.html",
+        "https://www.postgresql.org/docs/current/performance-tips.html",
+        "https://wiki.postgresql.org/wiki/Performance_Optimization"
+      ],
+      "tags": ["postgresql", "database", "performance"]
+    },
+    {
+      "query": "Git rebase vs merge workflow",
+      "relevant_urls": [
+        "https://git-scm.com/book/en/v2/Git-Branching-Rebasing",
+        "https://www.atlassian.com/git/tutorials/merging-vs-rebasing",
+        "https://docs.github.com/en/get-started/using-git/about-git-rebase"
+      ],
+      "tags": ["git", "version-control", "workflow"]
+    },
+    {
+      "query": "TypeScript generics tutorial",
+      "relevant_urls": [
+        "https://www.typescriptlang.org/docs/handbook/2/generics.html",
+        "https://www.typescriptlang.org/docs/handbook/2/types-from-types.html",
+        "https://www.freecodecamp.org/news/typescript-generics-how-to-use-them/"
+      ],
+      "tags": ["typescript", "programming", "types"]
+    },
+    {
+      "query": "Kubernetes pod scheduling explained",
+      "relevant_urls": [
+        "https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/",
+        "https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/",
+        "https://www.digitalocean.com/community/tutorials/how-to-use-kubernetes-pod-scheduling"
+      ],
+      "tags": ["kubernetes", "infrastructure", "scheduling"]
+    },
+    {
+      "query": "Nginx reverse proxy configuration",
+      "relevant_urls": [
+        "https://nginx.org/en/docs/http/ngx_http_proxy_module.html",
+        "https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/",
+        "https://www.digitalocean.com/community/tutorials/how-to-configure-nginx-as-a-reverse-proxy-on-ubuntu-22-04"
+      ],
+      "tags": ["nginx", "proxy", "web-server"]
+    },
+    {
+      "query": "Redis caching strategies best practices",
+      "relevant_urls": [
+        "https://redis.io/docs/manual/patterns/",
+        "https://redis.io/docs/getting-started/",
+        "https://www.digitalocean.com/community/tutorials/how-to-implement-caching-in-node-js-using-redis",
+        "https://aws.amazon.com/caching/best-practices/"
+      ],
+      "tags": ["redis", "caching", "performance"]
+    }
+  ]
+}

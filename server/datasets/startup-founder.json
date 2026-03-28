@@ -1,0 +1,78 @@
+{
+  "name": "startup-founder",
+  "description": "Startup strategy, fundraising, market research, and operational best practices for founders",
+  "cases": [
+    {
+      "query": "Y Combinator application tips",
+      "relevant_urls": [
+        "https://www.ycombinator.com/apply",
+        "https://www.ycombinator.com/library/8h-how-to-apply-to-yc",
+        "https://www.ycombinator.com/library/4T-how-to-pitch-your-startup"
+      ],
+      "tags": ["fundraising", "accelerator", "YC"]
+    },
+    {
+      "query": "SaaS pricing strategies B2B",
+      "relevant_urls": [
+        "https://stripe.com/atlas/guides/saas-pricing",
+        "https://a16z.com/saas-pricing-strategy/",
+        "https://hbr.org/topic/subject/pricing-strategy"
+      ],
+      "tags": ["pricing", "SaaS", "B2B"]
+    },
+    {
+      "query": "startup pitch deck structure",
+      "relevant_urls": [
+        "https://www.ycombinator.com/library/2u-how-to-build-your-seed-round-pitch-deck",
+        "https://www.sequoiacap.com/article/writing-a-business-plan/",
+        "https://review.firstround.com/the-fundraising-bible"
+      ],
+      "tags": ["fundraising", "pitch-deck", "presentation"]
+    },
+    {
+      "query": "product market fit measurement",
+      "relevant_urls": [
+        "https://a16z.com/product-market-fit/",
+        "https://www.ycombinator.com/library/5z-the-real-product-market-fit",
+        "https://review.firstround.com/how-superhuman-built-an-engine-to-find-product-market-fit"
+      ],
+      "tags": ["product", "growth", "metrics"]
+    },
+    {
+      "query": "venture capital term sheet explained",
+      "relevant_urls": [
+        "https://www.ycombinator.com/library/6z-fundraising",
+        "https://a16z.com/term-sheet-guide/",
+        "https://techcrunch.com/2023/03/24/what-to-know-about-term-sheets/"
+      ],
+      "tags": ["fundraising", "legal", "venture-capital"]
+    },
+    {
+      "query": "customer acquisition cost optimization",
+      "relevant_urls": [
+        "https://hbr.org/2014/10/the-value-of-keeping-the-right-customers",
+        "https://stripe.com/atlas/guides/business-of-saas",
+        "https://a16z.com/16-metrics-for-saas-companies/"
+      ],
+      "tags": ["marketing", "metrics", "growth"]
+    },
+    {
+      "query": "competitive analysis framework startup",
+      "relevant_urls": [
+        "https://hbr.org/1979/03/how-competitive-forces-shape-strategy",
+        "https://review.firstround.com/competitive-analysis-for-startups",
+        "https://www.ycombinator.com/library/6e-how-to-plan-an-mvp"
+      ],
+      "tags": ["strategy", "competition", "analysis"]
+    },
+    {
+      "query": "startup equity vesting schedule",
+      "relevant_urls": [
+        "https://stripe.com/atlas/guides/equity",
+        "https://www.ycombinator.com/library/4S-employee-equity",
+        "https://carta.com/blog/equity-101-stock-option-basics/"
+      ],
+      "tags": ["equity", "compensation", "legal"]
+    }
+  ]
+}

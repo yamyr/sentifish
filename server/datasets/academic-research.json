@@ -1,0 +1,81 @@
+{
+  "name": "academic-research",
+  "description": "Scientific papers, research concepts, and academic literature across AI, biology, and physics",
+  "cases": [
+    {
+      "query": "attention is all you need transformer paper",
+      "relevant_urls": [
+        "https://arxiv.org/abs/1706.03762",
+        "https://en.wikipedia.org/wiki/Transformer_(deep_learning_architecture)",
+        "https://proceedings.neurips.cc/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html"
+      ],
+      "tags": ["deep-learning", "transformers", "NLP"]
+    },
+    {
+      "query": "CRISPR Cas9 gene editing mechanism",
+      "relevant_urls": [
+        "https://www.nature.com/articles/nbt.3107",
+        "https://en.wikipedia.org/wiki/CRISPR_gene_editing",
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4975809/",
+        "https://www.broadinstitute.org/what-broad/areas-focus/project-spotlight/questions-and-answers-about-crispr"
+      ],
+      "tags": ["biology", "genetics", "CRISPR"]
+    },
+    {
+      "query": "quantum error correction methods survey",
+      "relevant_urls": [
+        "https://arxiv.org/abs/1208.0928",
+        "https://en.wikipedia.org/wiki/Quantum_error_correction",
+        "https://www.nature.com/articles/s41586-022-05434-1"
+      ],
+      "tags": ["quantum-computing", "error-correction", "physics"]
+    },
+    {
+      "query": "reinforcement learning from human feedback RLHF",
+      "relevant_urls": [
+        "https://arxiv.org/abs/2203.02155",
+        "https://arxiv.org/abs/2009.01325",
+        "https://huggingface.co/blog/rlhf",
+        "https://en.wikipedia.org/wiki/Reinforcement_learning_from_human_feedback"
+      ],
+      "tags": ["machine-learning", "RLHF", "alignment"]
+    },
+    {
+      "query": "graph neural networks applications survey",
+      "relevant_urls": [
+        "https://arxiv.org/abs/1901.00596",
+        "https://arxiv.org/abs/2104.13478",
+        "https://en.wikipedia.org/wiki/Graph_neural_network"
+      ],
+      "tags": ["deep-learning", "graphs", "survey"]
+    },
+    {
+      "query": "mRNA vaccine technology explained",
+      "relevant_urls": [
+        "https://www.nature.com/articles/s41586-021-03275-y",
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8085615/",
+        "https://en.wikipedia.org/wiki/MRNA_vaccine",
+        "https://www.cdc.gov/coronavirus/2019-ncov/vaccines/different-vaccines/mrna.html"
+      ],
+      "tags": ["biology", "vaccines", "mRNA"]
+    },
+    {
+      "query": "dark matter detection experiments",
+      "relevant_urls": [
+        "https://en.wikipedia.org/wiki/Dark_matter",
+        "https://www.nature.com/articles/s41586-018-0542-z",
+        "https://home.cern/science/physics/dark-matter"
+      ],
+      "tags": ["physics", "dark-matter", "cosmology"]
+    },
+    {
+      "query": "large language model scaling laws",
+      "relevant_urls": [
+        "https://arxiv.org/abs/2001.08361",
+        "https://arxiv.org/abs/2203.15556",
+        "https://en.wikipedia.org/wiki/Neural_scaling_law"
+      ],
+      "tags": ["machine-learning", "scaling", "language-models"]
+    }
+  ]
+}

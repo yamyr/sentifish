@@ -1,0 +1,82 @@
+{
+  "name": "ml-engineer",
+  "description": "Machine learning engineering queries covering model training, inference, benchmarks, and tooling",
+  "cases": [
+    {
+      "query": "LoRA fine-tuning large language models",
+      "relevant_urls": [
+        "https://arxiv.org/abs/2106.09685",
+        "https://huggingface.co/docs/peft/conceptual_guides/lora",
+        "https://huggingface.co/blog/lora",
+        "https://github.com/microsoft/LoRA"
+      ],
+      "tags": ["fine-tuning", "LoRA", "LLM"]
+    },
+    {
+      "query": "vLLM vs TGI inference performance",
+      "relevant_urls": [
+        "https://github.com/vllm-project/vllm",
+        "https://huggingface.co/docs/text-generation-inference/index",
+        "https://docs.vllm.ai/en/latest/"
+      ],
+      "tags": ["inference", "serving", "performance"]
+    },
+    {
+      "query": "RAG retrieval augmented generation tutorial",
+      "relevant_urls": [
+        "https://arxiv.org/abs/2005.11401",
+        "https://python.langchain.com/docs/tutorials/rag/",
+        "https://huggingface.co/docs/transformers/model_doc/rag",
+        "https://www.pinecone.io/learn/retrieval-augmented-generation/"
+      ],
+      "tags": ["RAG", "retrieval", "LLM"]
+    },
+    {
+      "query": "MMLU benchmark leaderboard results",
+      "relevant_urls": [
+        "https://arxiv.org/abs/2009.03300",
+        "https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard",
+        "https://paperswithcode.com/sota/multi-task-language-understanding-on-mmlu"
+      ],
+      "tags": ["benchmarks", "evaluation", "LLM"]
+    },
+    {
+      "query": "PyTorch distributed training guide",
+      "relevant_urls": [
+        "https://pytorch.org/tutorials/intermediate/ddp_tutorial.html",
+        "https://pytorch.org/docs/stable/distributed.html",
+        "https://pytorch.org/tutorials/beginner/dist_overview.html"
+      ],
+      "tags": ["pytorch", "distributed", "training"]
+    },
+    {
+      "query": "vector database comparison 2024",
+      "relevant_urls": [
+        "https://www.pinecone.io/learn/vector-database/",
+        "https://github.com/erikbern/ann-benchmarks",
+        "https://weaviate.io/blog/vector-databases-compared",
+        "https://docs.trychroma.com/"
+      ],
+      "tags": ["vector-database", "embeddings", "search"]
+    },
+    {
+      "query": "prompt engineering best practices",
+      "relevant_urls": [
+        "https://platform.openai.com/docs/guides/prompt-engineering",
+        "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview",
+        "https://www.promptingguide.ai/"
+      ],
+      "tags": ["prompting", "LLM", "best-practices"]
+    },
+    {
+      "query": "model quantization GPTQ AWQ comparison",
+      "relevant_urls": [
+        "https://arxiv.org/abs/2210.17323",
+        "https://arxiv.org/abs/2306.00978",
+        "https://huggingface.co/docs/transformers/main/en/quantization/overview",
+        "https://github.com/AutoGPTQ/AutoGPTQ"
+      ],
+      "tags": ["quantization", "optimization", "inference"]
+    }
+  ]
+}
