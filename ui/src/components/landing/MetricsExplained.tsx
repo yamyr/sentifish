@@ -61,31 +61,31 @@ const colorMap: Record<
     bg: "bg-brand-indigo/10",
     ring: "ring-brand-indigo/20",
     text: "text-brand-indigo",
-    hoverShadow: "hover:shadow-brand-indigo/25",
+    hoverShadow: "hover:shadow-brand-indigo/20",
   },
   "brand-cyan": {
     bg: "bg-brand-cyan/10",
     ring: "ring-brand-cyan/20",
     text: "text-brand-cyan",
-    hoverShadow: "hover:shadow-brand-cyan/25",
+    hoverShadow: "hover:shadow-brand-cyan/20",
   },
   success: {
     bg: "bg-success/10",
     ring: "ring-success/20",
     text: "text-success",
-    hoverShadow: "hover:shadow-success/25",
+    hoverShadow: "hover:shadow-success/20",
   },
   warning: {
     bg: "bg-warning/10",
     ring: "ring-warning/20",
     text: "text-warning",
-    hoverShadow: "hover:shadow-warning/25",
+    hoverShadow: "hover:shadow-warning/20",
   },
   destructive: {
     bg: "bg-destructive/10",
     ring: "ring-destructive/20",
     text: "text-destructive",
-    hoverShadow: "hover:shadow-destructive/25",
+    hoverShadow: "hover:shadow-destructive/20",
   },
 };
 
