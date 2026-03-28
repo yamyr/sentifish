@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 const Footer = () => (
   <footer className="bg-background">
     {/* Gradient top border */}
-    <div className="h-px bg-gradient-to-r from-transparent via-brand-cyan/30 to-transparent" />
+    <div className="h-px bg-gradient-to-r from-transparent via-brand-cyan/25 to-transparent" />
 
     <div className="mx-auto max-w-6xl px-6 py-16">
       <div className="grid gap-12 md:grid-cols-3">
@@ -82,13 +82,13 @@ const Footer = () => (
             Built with
           </h3>
           <div>
-            <span className="inline-flex items-center rounded-md bg-secondary px-2.5 py-1 font-mono-brand text-xs text-muted-foreground mr-2 mb-2">
+            <span className="inline-flex items-center rounded-md bg-secondary/80 px-2.5 py-1 font-mono-brand text-xs text-muted-foreground mr-2 mb-2">
               FastAPI
             </span>
-            <span className="inline-flex items-center rounded-md bg-secondary px-2.5 py-1 font-mono-brand text-xs text-muted-foreground mr-2 mb-2">
+            <span className="inline-flex items-center rounded-md bg-secondary/80 px-2.5 py-1 font-mono-brand text-xs text-muted-foreground mr-2 mb-2">
               React
             </span>
-            <span className="inline-flex items-center rounded-md bg-secondary px-2.5 py-1 font-mono-brand text-xs text-muted-foreground mr-2 mb-2">
+            <span className="inline-flex items-center rounded-md bg-secondary/80 px-2.5 py-1 font-mono-brand text-xs text-muted-foreground mr-2 mb-2">
               TypeScript
             </span>
           </div>

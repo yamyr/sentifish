@@ -144,9 +144,9 @@ const HowItWorks = () => {
             <div className="glow-indigo overflow-hidden rounded-2xl border border-border bg-card">
               {/* Top bar */}
               <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-                <span className="h-3 w-3 rounded-full bg-red-500/70" />
-                <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
-                <span className="h-3 w-3 rounded-full bg-green-500/70" />
+                <span className="h-3 w-3 rounded-full bg-rose-400/60" />
+                <span className="h-3 w-3 rounded-full bg-amber-400/60" />
+                <span className="h-3 w-3 rounded-full bg-emerald-400/60" />
               </div>
 
               {/* GIF */}

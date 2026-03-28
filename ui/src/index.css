@@ -6,42 +6,46 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 228 24% 12%;
+    /* ---- Core palette: soft pastels with high-contrast text ---- */
+    --background: 210 30% 98%;
+    --foreground: 220 25% 14%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 228 24% 12%;
+    --card: 210 40% 99%;
+    --card-foreground: 220 25% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 228 24% 12%;
+    --popover-foreground: 220 25% 14%;
 
-    --primary: 243 75% 55%;
+    --primary: 172 50% 40%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 20% 94%;
-    --secondary-foreground: 228 24% 12%;
+    --secondary: 210 25% 95%;
+    --secondary-foreground: 220 25% 14%;
 
-    --muted: 220 14% 92%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 210 20% 93%;
+    --muted-foreground: 215 15% 48%;
 
-    --accent: 243 75% 55%;
+    --accent: 255 45% 60%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 60% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 88%;
-    --input: 220 13% 88%;
-    --ring: 243 75% 55%;
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 172 50% 40%;
 
     --radius: 0.75rem;
 
-    --brand-navy: 228 24% 12%;
-    --brand-indigo: 243 75% 55%;
-    --brand-cyan: 192 85% 48%;
-    --success: 152 60% 42%;
-    --warning: 38 92% 50%;
-    --danger: 0 72% 51%;
+    /* ---- Brand palette: pastel-teal + soft violet ---- */
+    --brand-navy: 220 30% 16%;
+    --brand-indigo: 255 45% 60%;
+    --brand-cyan: 172 50% 40%;
+
+    /* ---- Semantic pastels ---- */
+    --success: 158 45% 45%;
+    --warning: 40 75% 55%;
+    --danger: 0 60% 55%;
   }
 }
 
@@ -64,7 +68,7 @@
   }
 }
 
-/* ---- Flashy polish utilities ---- */
+/* ---- Animation utilities ---- */
 
 @keyframes shimmer {
   0% { background-position: -200% 0; }
@@ -78,7 +82,7 @@
 
 @keyframes pulse-glow {
   0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
+  50% { opacity: 0.7; }
 }
 
 @keyframes gradient-shift {
@@ -94,7 +98,7 @@
 
 .animate-shimmer {
   background-size: 200% 100%;
-  animation: shimmer 2s linear infinite;
+  animation: shimmer 2.5s linear infinite;
 }
 
 .animate-float {
@@ -110,16 +114,16 @@
   animation: gradient-shift 6s ease infinite;
 }
 
-/* Glow ring utility — apply to a pseudo-element or wrapper */
+/* Glow utilities — tuned for pastel palette */
 .glow-cyan {
-  box-shadow: 0 0 40px hsl(192 85% 48% / 0.15), 0 0 80px hsl(192 85% 48% / 0.05);
+  box-shadow: 0 0 30px hsl(172 50% 40% / 0.12), 0 0 60px hsl(172 50% 40% / 0.04);
 }
 
 .glow-indigo {
-  box-shadow: 0 0 40px hsl(243 75% 55% / 0.15), 0 0 80px hsl(243 75% 55% / 0.05);
+  box-shadow: 0 0 30px hsl(255 45% 60% / 0.12), 0 0 60px hsl(255 45% 60% / 0.04);
 }
 
-/* Gradient border utility using background-clip trick */
+/* Gradient border — pastel teal to soft violet */
 .gradient-border {
   position: relative;
   background-clip: padding-box;
@@ -131,7 +135,7 @@
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, hsl(192 85% 48% / 0.5), hsl(243 75% 55% / 0.5));
+  background: linear-gradient(135deg, hsl(172 50% 40% / 0.35), hsl(255 45% 60% / 0.35));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
