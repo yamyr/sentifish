@@ -227,7 +227,7 @@ def _parse_tinyfish_results(event: dict, top_k: int) -> list[SearchResult]:
         items = result_data
     elif isinstance(result_data, dict):
         # Try common wrapper keys
-        for key in ("results", "data", "items", "organic"):
+        for key in ("search_results", "results", "data", "items", "organic"):
             if isinstance(result_data.get(key), list):
                 items = result_data[key]
                 break
