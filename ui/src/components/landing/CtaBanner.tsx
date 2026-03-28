@@ -4,7 +4,7 @@ import { ArrowRight, ExternalLink } from "lucide-react";
 import NeuralBackground from "./NeuralBackground";
 
 const CtaBanner = () => (
-  <section className="relative overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-indigo/30 py-20">
+  <section className="relative overflow-hidden overflow-x-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-indigo/30 py-20">
     {/* Neural network background */}
     <NeuralBackground
       nodeCount={35}
@@ -24,9 +24,19 @@ const CtaBanner = () => (
       }}
     />
 
-    {/* Decorative orbs */}
-    <div className="absolute -top-20 right-10 h-64 w-64 rounded-full bg-brand-cyan/8 blur-3xl animate-pulse-glow" />
-    <div className="absolute bottom-0 -left-20 h-48 w-48 rounded-full bg-brand-indigo/10 blur-3xl" />
+    {/* Decorative orbs with parallax float */}
+    <motion.div
+      initial={{ y: 0 }}
+      animate={{ y: [0, -12, 0] }}
+      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute -top-20 right-10 h-64 w-64 rounded-full bg-brand-cyan/8 blur-3xl animate-pulse-glow"
+    />
+    <motion.div
+      initial={{ y: 0 }}
+      animate={{ y: [0, 10, 0] }}
+      transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute bottom-0 -left-20 h-48 w-48 rounded-full bg-brand-indigo/10 blur-3xl"
+    />
 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -48,7 +58,13 @@ const CtaBanner = () => (
         account required.
       </p>
 
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true }}
+        transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.3 }}
+        className="mt-8 flex flex-wrap items-center justify-center gap-4"
+      >
         <Link
           to="/dashboard"
           className="group relative overflow-hidden inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-7 py-3.5 font-sans-brand text-sm font-semibold text-brand-navy shadow-lg shadow-brand-cyan/20 transition-all hover:shadow-brand-cyan/40 hover:brightness-110"
@@ -66,7 +82,7 @@ const CtaBanner = () => (
           View on GitHub
           <ExternalLink className="h-4 w-4" />
         </a>
-      </div>
+      </motion.div>
     </motion.div>
   </section>
 );
