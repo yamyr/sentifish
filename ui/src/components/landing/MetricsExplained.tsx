@@ -134,7 +134,7 @@ const MetricsExplained = () => {
   const activeMetric = metrics.find((m) => m.id === activeId);
 
   return (
-    <section id="metrics" className="bg-background py-24">
+    <section id="metrics" className="overflow-x-hidden bg-background py-24">
       <div className="mx-auto max-w-6xl px-6">
         {/* Section header */}
         <motion.div
@@ -161,10 +161,10 @@ const MetricsExplained = () => {
 
         {/* Tradeoff summary badges */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: -16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.4, delay: 0.1 }}
+          transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
           className="mb-14 flex flex-wrap items-center justify-center gap-3"
         >
           <span className="flex items-center gap-2 rounded-full bg-brand-indigo/8 px-4 py-1.5 text-xs font-medium text-brand-indigo ring-1 ring-brand-indigo/15">
@@ -196,7 +196,7 @@ const MetricsExplained = () => {
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{
                   duration: 0.4,
-                  delay: index * 0.06,
+                  delay: index * 0.12,
                   ease: "easeOut",
                 }}
                 onClick={() =>

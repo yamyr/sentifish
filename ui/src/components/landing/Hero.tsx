@@ -26,7 +26,7 @@ const Hero = () => {
   return (
     <section
       id="hero"
-      className="relative w-full overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-indigo/80"
+      className="relative w-full overflow-x-hidden overflow-hidden bg-gradient-to-br from-brand-navy via-brand-navy to-brand-indigo/80"
     >
       {/* Neural network background */}
       <NeuralBackground
@@ -52,7 +52,12 @@ const Hero = () => {
       <div className="pointer-events-none absolute -bottom-10 -left-20 h-48 w-48 rounded-full bg-brand-indigo/10 blur-3xl" />
 
       <div className="relative mx-auto max-w-6xl px-6 pt-28 sm:pt-36 lg:pt-44 pb-16">
-        <div className="flex flex-col items-center text-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="flex flex-col items-center text-center"
+        >
           {/* Logo */}
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
@@ -130,13 +135,18 @@ const Hero = () => {
 
           {/* Dashboard preview */}
           <motion.div
-            initial={{ opacity: 0, y: 40 }}
+            initial={{ opacity: 0, y: 60 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.5 }}
-            className="mt-16 mx-auto max-w-5xl px-4"
-            style={{ transform: "perspective(1200px) rotateX(2deg)" }}
+            transition={{ type: "spring", stiffness: 80, damping: 20, delay: 0.5 }}
+            className="mt-16 mx-auto w-full max-w-5xl px-4"
+            style={{ perspective: "1200px" }}
           >
-            <div className="glow-cyan relative rounded-2xl gradient-border bg-white/5 shadow-2xl shadow-brand-cyan/10 overflow-hidden">
+            <motion.div
+              initial={{ rotateX: 4 }}
+              animate={{ rotateX: 2 }}
+              transition={{ type: "spring", stiffness: 60, damping: 20, delay: 0.7 }}
+              className="glow-cyan relative rounded-2xl gradient-border bg-white/5 shadow-2xl shadow-brand-cyan/10 overflow-hidden"
+            >
               {/* Browser chrome top bar */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-white/5">
                 <div className="h-2.5 w-2.5 rounded-full bg-rose-400/60" />
@@ -148,9 +158,9 @@ const Hero = () => {
                 alt="Sentifish dashboard showing provider comparison metrics"
                 className="w-full"
               />
-            </div>
+            </motion.div>
           </motion.div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
