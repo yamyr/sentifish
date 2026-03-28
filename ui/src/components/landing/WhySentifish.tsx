@@ -45,7 +45,7 @@ const cardVariants = {
 };
 
 const WhySentifish = () => (
-  <section className="bg-secondary/50 py-24">
+  <section id="why" className="bg-gradient-to-br from-secondary/50 to-secondary/30 py-24">
     <div className="mx-auto max-w-6xl px-6">
       {/* Section header */}
       <motion.div
