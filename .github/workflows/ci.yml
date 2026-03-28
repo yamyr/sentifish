@@ -20,6 +20,7 @@ jobs:
     outputs:
       server: ${{ steps.filter.outputs.server }}
       docker: ${{ steps.filter.outputs.docker }}
+      ui: ${{ steps.filter.outputs.ui }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -31,6 +32,8 @@ jobs:
             docker:
               - 'Dockerfile'
               - 'server/**'
+            ui:
+              - 'ui/**'
 
   server-lint:
     needs: changes
@@ -71,13 +74,33 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docker == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t sentifish-ci .
 
+  ui-build:
+    name: UI Build
+    needs: changes
+    if: needs.changes.outputs.ui == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+        working-directory: ui
+      - run: npx tsc --noEmit
+        working-directory: ui
+      - run: npm run build
+        working-directory: ui
+
   ci-pass:
-    needs: [server-lint, server-test, docker-build]
+    needs: [server-lint, server-test, docker-build, ui-build]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -87,11 +110,44 @@ jobs:
           echo "server-lint: ${{ needs.server-lint.result }}"
           echo "server-test: ${{ needs.server-test.result }}"
           echo "docker-build: ${{ needs.docker-build.result }}"
+          echo "ui-build: ${{ needs.ui-build.result }}"
           if [[ "${{ needs.server-lint.result }}" =~ ^(success|skipped)$ ]] && \
              [[ "${{ needs.server-test.result }}" =~ ^(success|skipped)$ ]] && \
-             [[ "${{ needs.docker-build.result }}" =~ ^(success|skipped)$ ]]; then
+             [[ "${{ needs.docker-build.result }}" =~ ^(success|skipped)$ ]] && \
+             [[ "${{ needs.ui-build.result }}" =~ ^(success|skipped)$ ]]; then
             echo "All checks passed or were skipped"
           else
             echo "Some checks failed"
             exit 1
           fi
+
+  deploy:
+    name: Deploy to Railway
+    needs: ci-pass
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://server-production-7319.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --detach
+      - name: Wait for deployment health
+        run: |
+          echo "Waiting for deployment to go live..."
+          for i in $(seq 1 30); do
+            status=$(curl -sf https://server-production-7319.up.railway.app/health 2>/dev/null | grep -o '"ok"' || true)
+            if [ "$status" = '"ok"' ]; then
+              echo "Deployment healthy!"
+              exit 0
+            fi
+            echo "Attempt $i/30 - waiting 10s..."
+            sleep 10
+          done
+          echo "WARNING: Health check didn't pass within 5 minutes, but deployment may still be building"
