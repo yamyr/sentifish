@@ -61,3 +61,12 @@ export function useHealth() {
     retry: 1,
   });
 }
+
+export function useNarrationText(runId: string | null) {
+  return useQuery({
+    queryKey: ["narration", runId],
+    queryFn: () => sentifishApi.getNarrationText(runId!),
+    enabled: !!runId,
+    staleTime: 60_000,
+  });
+}

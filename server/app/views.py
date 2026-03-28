@@ -5,9 +5,12 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from . import datasets as ds
+from . import narrator
 from . import runner
+from .config import settings
 from .providers import available_providers
 
 router = APIRouter(prefix="/api")
@@ -96,6 +99,39 @@ def get_run_summary(run_id: str):
         "status": run.status,
         "summary": run.summary,
     }
+
+
+# -- Narration ---------------------------------------------------------------
+
+
+@router.get("/runs/{run_id}/narration/text")
+def get_narration_text(run_id: str):
+    """Generate spoken-word narration text for an eval run."""
+    run = runner.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id!r}")
+    narration_text = narrator.generate_narration(run)
+    return {"text": narration_text}
+
+
+@router.get("/runs/{run_id}/narration/audio")
+async def get_narration_audio(run_id: str):
+    """Generate narration audio (MP3) for an eval run via ElevenLabs TTS."""
+    if not settings.elevenlabs_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="ElevenLabs API key not configured",
+        )
+    run = runner.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id!r}")
+    narration_text = narrator.generate_narration(run)
+    audio_bytes = await narrator.synthesize_speech(narration_text)
+    return StreamingResponse(
+        iter([audio_bytes]),
+        media_type="audio/mpeg",
+        headers={"Content-Disposition": "inline; filename=narration.mp3"},
+    )
 
 
 @router.post("/runs")
