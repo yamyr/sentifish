@@ -74,17 +74,7 @@ def delete_dataset(name: str):
 def list_runs():
     runs = runner.list_runs()
     return {
-        "runs": [
-            {
-                "id": r.id,
-                "dataset_name": r.dataset_name,
-                "providers": r.providers,
-                "status": r.status,
-                "created_at": r.created_at,
-                "completed_at": r.completed_at,
-            }
-            for r in runs
-        ]
+        "runs": [r.model_dump() for r in runs]
     }
 
 
