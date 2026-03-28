@@ -171,7 +171,9 @@ async def synthesize_speech(text: str) -> bytes:
 
     if _agent_voice_cache:
         voice_id = _agent_voice_cache["voice_id"]
-        model_id = _agent_voice_cache["model_id"]
+        # Conversational models (eleven_v3_conversational) don't work with the
+        # standard TTS endpoint. Use the agent's voice with a compatible model.
+        model_id = settings.elevenlabs_model_id
         stability = _agent_voice_cache["stability"]
         similarity_boost = _agent_voice_cache["similarity_boost"]
     else:
