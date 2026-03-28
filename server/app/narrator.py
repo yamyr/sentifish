@@ -65,7 +65,9 @@ def generate_narration(run: EvalRun) -> str:
 
     providers = list(summary.keys())
     num_queries = int(next(iter(summary.values())).get("total_queries", 0))
-    provider_list = ", ".join(providers[:-1]) + f", and {providers[-1]}" if len(providers) > 1 else providers[0]
+    provider_list = (
+        ", ".join(providers[:-1]) + f", and {providers[-1]}" if len(providers) > 1 else providers[0]
+    )
 
     lines: list[str] = []
 
