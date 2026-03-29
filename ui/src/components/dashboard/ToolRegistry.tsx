@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { Lock, Trash2, Plus, Loader2, Wrench } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
