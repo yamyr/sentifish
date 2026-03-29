@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 
+    # API key auth (optional — protects write endpoints)
+    api_key: str = ""
+
     # Results storage
     results_dir: str = "./results"
 

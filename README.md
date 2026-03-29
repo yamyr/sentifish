@@ -84,7 +84,7 @@ Dashboard components:
 ```bash
 cd server
 uv sync --all-groups
-cp ../env.sample .env   # fill in API keys
+cp ../env.sample .env   # fill in API keys (see env.sample for all options including API_KEY)
 ./run
 ```
 
@@ -170,6 +170,8 @@ Ships with 7 evaluation datasets (48+ queries total):
 | **MRR** | How quickly the first relevant result appears |
 | **Latency** | Wall-clock response time per provider |
 
+**Content Depth** (`content_depth`) is the normalized average snippet length returned by a provider. It measures how much substantive content each result contains — providers that return longer, richer snippets score higher. Displayed in the dashboard's Provider Comparison chart and in per-query score tables.
+
 ## Tests
 
 ```bash
@@ -216,9 +218,22 @@ Sentifish today benchmarks search providers. The bigger vision is **observabilit
 
 **Multi-Agent Arena** — Head-to-head comparison of browser agents (TinyFish, Browserbase, Multion, Steel) on identical tasks, scored with the same metrics framework.
 
+## Security
+
+Write endpoints (`POST /api/runs`, `POST /api/datasets`, `DELETE /api/datasets/{name}`) can be protected with an optional API key. Set the `API_KEY` environment variable to enable authentication — all write requests must then include a matching `X-Api-Key` header. When `API_KEY` is not set, auth is disabled and the API is open.
+
+```bash
+API_KEY=your-secret-key-here
+
+curl -X POST http://localhost:4010/api/runs \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: your-secret-key-here" \
+  -d '{"dataset": "sample", "providers": ["brave"], "top_k": 10}'
+```
+
 ## Research
 
-The `docs/research/` directory contains 47 research files on agentic frameworks, evaluation methods, and observability — the background research that shaped Sentifish's design.
+The `docs/research/` directory contains 51 research files on agentic frameworks, evaluation methods, and observability — the background research that shaped Sentifish's design.
 
 ## License
 

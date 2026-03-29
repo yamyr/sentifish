@@ -78,9 +78,7 @@ async def _eval_query(
     judge_reasoning = ""
     if settings.openai_api_key:
         try:
-            judge_score, judge_reasoning = await judge_results(
-                query, results, provider.name, top_k
-            )
+            judge_score, judge_reasoning = await judge_results(query, results, provider.name, top_k)
         except Exception as exc:
             logger.warning("Judge scoring failed for %s/%s: %s", provider.name, query[:40], exc)
 

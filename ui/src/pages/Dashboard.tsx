@@ -71,7 +71,7 @@ export default function Dashboard() {
       </motion.nav>
 
       {/* Main content */}
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-10">
+        <main className="mx-auto max-w-6xl px-4 py-4 sm:py-8 sm:px-6 space-y-10">
         <DashboardHeader onNewRun={() => setNewRunOpen(true)} />
 
         {activeRunId && (
