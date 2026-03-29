@@ -1,7 +1,5 @@
-import pytest
 
 from app.custom_executor import _extract_results, _interpolate
-from app.models import ToolCategory, ToolDefinition
 
 
 def test_interpolate():
