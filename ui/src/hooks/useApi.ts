@@ -177,11 +177,15 @@ export function useRunReport(runId: string | null) {
     enabled: !!runId,
     staleTime: 60_000,
   });
+}
+
 export function useTools() {
   return useQuery({ queryKey: ["tools"], queryFn: sentifishApi.getTools, staleTime: 30_000 });
+}
 
 export function useTasks() {
   return useQuery({ queryKey: ["tasks"], queryFn: sentifishApi.getTasks, staleTime: 30_000 });
+}
 
 export function useCreateTool() {
   const qc = useQueryClient();
