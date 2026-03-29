@@ -10,12 +10,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class ToolCategory(StrEnum):
-    SEARCH = "search"
-    RETRIEVAL = "retrieval"
-    CUSTOM = "custom"
-
-
 class SearchResult(BaseModel):
     """A single search result returned by a provider."""
 
