@@ -186,10 +186,12 @@ export function useTasks() {
 export function useCreateTool() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: sentifishApi.createTool, onSuccess: () => qc.invalidateQueries({ queryKey: ["tools"] }) });
+}
 
 export function useDeleteTool() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: sentifishApi.deleteTool, onSuccess: () => qc.invalidateQueries({ queryKey: ["tools"] }) });
+}
 
 export function useCreateTask() {
   const qc = useQueryClient();
