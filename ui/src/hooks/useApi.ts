@@ -9,6 +9,14 @@ export function useProviders() {
   });
 }
 
+export function useAllProviders() {
+  return useQuery({
+    queryKey: ["providers-all"],
+    queryFn: sentifishApi.getAllProviders,
+    staleTime: 60_000,
+  });
+}
+
 export function useDatasets() {
   return useQuery({
     queryKey: ["datasets"],
@@ -57,6 +65,16 @@ export function useTriggerMultiRun() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (req: MultiEvalRunRequest) => sentifishApi.triggerMultiRun(req),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["runs"] });
+    },
+  });
+}
+
+export function useTriggerDemoRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => sentifishApi.triggerDemoRun(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["runs"] });
     },
