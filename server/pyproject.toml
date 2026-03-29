@@ -10,6 +10,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "httpx>=0.28.0",
     "rich>=13.0.0",
+    "jsonpath-ng>=1.6",
 ]
 
 [tool.uv]
