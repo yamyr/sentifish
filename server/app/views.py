@@ -211,7 +211,7 @@ async def create_run(body: dict):
 
     try:
         top_k = max(1, min(int(raw_top_k), 100))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         raise HTTPException(
             status_code=400,
             detail="top_k must be an integer between 1 and 100",

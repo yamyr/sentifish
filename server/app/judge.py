@@ -48,7 +48,7 @@ async def judge_results(
 
     # Format results for the prompt
     results_text = "\n".join(
-        f"{i+1}. [{r.title}]({r.url})\n   {r.snippet[:200]}"
+        f"{i + 1}. [{r.title}]({r.url})\n   {r.snippet[:200]}"
         for i, r in enumerate(results[:top_k])
     )
 
@@ -85,6 +85,7 @@ Score these results for relevance and quality."""
             content = data["choices"][0]["message"]["content"]
 
             import json
+
             parsed = json.loads(content)
             score = float(parsed.get("score", 0.0))
             score = max(0.0, min(1.0, score))  # clamp
@@ -92,7 +93,10 @@ Score these results for relevance and quality."""
 
             logger.info(
                 "LLM judge scored %s/%s: %.2f — %s",
-                provider, query[:40], score, reasoning[:80],
+                provider,
+                query[:40],
+                score,
+                reasoning[:80],
             )
             return score, reasoning
 
@@ -124,7 +128,6 @@ async def judge_batch(
             return await judge_results(query, results, provider, top_k)
 
     tasks = [
-        limited_judge(query, results, provider)
-        for query, results, provider in queries_results
+        limited_judge(query, results, provider) for query, results, provider in queries_results
     ]
     return list(await asyncio.gather(*tasks))
