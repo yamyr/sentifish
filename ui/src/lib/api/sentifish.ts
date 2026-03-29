@@ -125,6 +125,14 @@ export const sentifishApi = {
       `/api/runs/${id}/summary`
     ),
 
+  getAllProviders: () =>
+    apiFetch<{ providers: { name: string; available: boolean }[] }>("/api/providers/all").then(
+      (r) => r.providers,
+    ),
+
+  triggerDemoRun: () =>
+    apiFetch<{ id: string; status: string }>("/api/demo-run", { method: "POST" }),
+
   getNarrationText: (runId: string) =>
     apiFetch<{ text: string }>(`/api/runs/${runId}/narration/text`),
 
