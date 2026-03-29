@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.responses import StreamingResponse
@@ -16,6 +18,8 @@ from . import runner
 from . import task_registry
 from . import tool_registry
 from .config import settings
+from .metric_recommender import AVAILABLE_METRICS
+from .models import EvalConfig, EvalMetricWeight
 from .providers import PROVIDERS, available_providers
 
 logger = logging.getLogger(__name__)
@@ -357,3 +361,84 @@ async def create_task(body: dict):
     task = TaskDefinition(**body)
     task_registry.register_task(task)
     return task.model_dump()
+
+
+# -- Metrics -----------------------------------------------------------------
+@router.get("/metrics")
+def list_available_metrics():
+    """List all available evaluation metrics with descriptions."""
+    return {"metrics": AVAILABLE_METRICS}
+
+
+@router.post("/tasks/recommend-metrics", dependencies=[Depends(_require_write_auth)])
+async def recommend_task_metrics(body: dict):
+    """Auto-derive the best 5 evaluation metrics for a task type."""
+    from .metric_recommender import recommend_metrics
+
+    task_name = body.get("task_name", "Custom Task")
+    task_description = body.get("task_description", "")
+    task_category = body.get("task_category", "search")
+    evaluation_criteria = body.get("evaluation_criteria", "")
+    result = await recommend_metrics(
+        task_name, task_description, task_category, evaluation_criteria
+    )
+    metrics = [
+        EvalMetricWeight(
+            metric=m["metric"],
+            weight=m["weight"],
+            label=AVAILABLE_METRICS.get(m["metric"], {}).get("label", m["metric"]),
+            description=m.get("reasoning", ""),
+            higher_is_better=AVAILABLE_METRICS.get(m["metric"], {}).get("higher_is_better", True),
+        )
+        for m in result.get("metrics", [])
+    ]
+    config = EvalConfig(
+        task_id=body.get("task_id", ""),
+        name=f"Auto-config for {task_name}",
+        metrics=metrics,
+        generated_by_ai=bool(settings.openai_api_key),
+        ai_reasoning=result.get("overall_reasoning", ""),
+    )
+    return {
+        "eval_config": config.model_dump(),
+        "available_metrics": AVAILABLE_METRICS,
+        "llm_used": bool(settings.openai_api_key),
+    }
+
+
+# -- Eval Configs ------------------------------------------------------------
+_EVAL_CONFIGS_FILE = Path(settings.results_dir) / "eval_configs.json"
+
+
+def _load_eval_configs() -> list[dict]:
+    if _EVAL_CONFIGS_FILE.is_file():
+        try:
+            return json.loads(_EVAL_CONFIGS_FILE.read_text())
+        except json.JSONDecodeError, OSError:
+            return []
+    return []
+
+
+def _save_eval_configs(configs: list[dict]) -> None:
+    _EVAL_CONFIGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _EVAL_CONFIGS_FILE.write_text(json.dumps(configs, indent=2))
+
+
+@router.get("/eval-configs")
+def list_eval_configs():
+    return {"eval_configs": _load_eval_configs()}
+
+
+@router.post("/eval-configs", dependencies=[Depends(_require_write_auth)])
+def create_eval_config(body: dict):
+    configs = _load_eval_configs()
+    config = EvalConfig(
+        task_id=body.get("task_id", ""),
+        name=body.get("name", "Untitled Config"),
+        metrics=[EvalMetricWeight(**m) for m in body.get("metrics", [])],
+        generated_by_ai=body.get("generated_by_ai", False),
+        ai_reasoning=body.get("ai_reasoning", ""),
+    )
+    configs.append(config.model_dump())
+    _save_eval_configs(configs)
+    return {"ok": True, "eval_config": config.model_dump()}
