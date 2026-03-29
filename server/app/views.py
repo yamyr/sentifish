@@ -72,6 +72,26 @@ def list_all_providers():
     return {"providers": providers}
 
 
+# -- Tools -------------------------------------------------------------------
+
+
+@router.post("/tools/test", dependencies=[Depends(_require_write_auth)])
+async def test_tool_connection(body: dict):
+    from .custom_executor import execute_custom_tool
+    from .models import ToolDefinition
+
+    tool = ToolDefinition(**body.get("tool", {}))
+    test_query = body.get("query", "test query")
+
+    results, latency_ms = await execute_custom_tool(tool, test_query, top_k=3)
+    return {
+        "ok": True,
+        "latency_ms": latency_ms,
+        "result_count": len(results),
+        "sample_results": [r.model_dump() for r in results[:3]],
+    }
+
+
 # -- Datasets ----------------------------------------------------------------
 
 

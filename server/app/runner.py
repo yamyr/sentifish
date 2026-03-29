@@ -9,8 +9,9 @@ import time
 from pathlib import Path
 
 from .config import settings
+from .custom_executor import execute_custom_tool
 from .judge import judge_results
-from .models import Dataset, EvalRun, QueryScore, RunStatus
+from .models import Dataset, EvalRun, QueryScore, RunStatus, ToolDefinition
 from .providers import SearchProvider, get_provider
 from .scorers import score_query
 
@@ -90,6 +91,45 @@ async def _eval_query(
         ndcg_at_k=scores["ndcg_at_k"],
         mrr=scores["mrr"],
         map_at_k=scores["map_at_k"],
+        content_depth=content_depth,
+        llm_judge_score=judge_score,
+        llm_judge_reasoning=judge_reasoning,
+        latency_ms=latency_ms,
+        result_count=len(results),
+        results=results,
+    )
+
+
+async def _eval_query_for_tool(
+    tool: ToolDefinition,
+    query: str,
+    relevant_urls: set[str],
+    top_k: int,
+) -> QueryScore:
+    if tool.builtin_provider:
+        provider = get_provider(tool.builtin_provider)
+        results, latency_ms = await provider.search(query, top_k)
+    else:
+        results, latency_ms = await execute_custom_tool(tool, query, top_k)
+
+    returned_urls = [r.url for r in results]
+    scores = score_query(returned_urls, relevant_urls, top_k)
+
+    snippet_lengths = [len(r.snippet) for r in results if r.snippet]
+    avg_snippet = sum(snippet_lengths) / len(snippet_lengths) if snippet_lengths else 0.0
+    content_depth = min(avg_snippet / 500.0, 1.0)
+
+    judge_score, judge_reasoning = 0.0, ""
+    if settings.openai_api_key:
+        try:
+            judge_score, judge_reasoning = await judge_results(query, results, tool.name, top_k)
+        except Exception as exc:
+            logger.warning("Judge scoring failed: %s", exc)
+
+    return QueryScore(
+        query=query,
+        provider=tool.slug,
+        **scores,
         content_depth=content_depth,
         llm_judge_score=judge_score,
         llm_judge_reasoning=judge_reasoning,
