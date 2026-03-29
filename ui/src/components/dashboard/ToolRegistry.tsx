@@ -24,7 +24,7 @@ const PROVIDER_COLORS: Record<string, string> = {
   internal: "bg-success/15 text-success",
 };
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: {},
   visible: {
     transition: {
@@ -33,7 +33,7 @@ const containerVariants = {
   },
 };
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
