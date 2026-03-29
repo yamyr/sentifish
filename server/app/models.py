@@ -72,6 +72,83 @@ class QueryScore(BaseModel):
         )
 
 
+class ToolCategory(StrEnum):
+    SEARCH = "search"
+    AI_ASSISTANT = "ai_assistant"
+    CODE_GENERATION = "code_generation"
+    IMAGE_GENERATION = "image_generation"
+    DATA_EXTRACTION = "data_extraction"
+    SUMMARIZATION = "summarization"
+    CUSTOM = "custom"
+
+
+class ToolInputType(StrEnum):
+    TEXT_QUERY = "text_query"
+    URL = "url"
+    FILE = "file"
+    CODE = "code"
+
+
+class ToolOutputType(StrEnum):
+    URL_LIST = "url_list"
+    TEXT = "text"
+    CODE = "code"
+    JSON = "json"
+    IMAGE_URL = "image_url"
+
+
+class ToolDefinition(BaseModel):
+    """A user-defined tool to evaluate."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    slug: str
+    category: ToolCategory
+    input_type: ToolInputType = ToolInputType.TEXT_QUERY
+    output_type: ToolOutputType = ToolOutputType.URL_LIST
+    description: str = ""
+    endpoint_url: str = ""
+    auth_header: str = ""
+    request_template: str = ""
+    response_path: str = ""
+    builtin_provider: str = ""
+    created_at: float = Field(default_factory=time.time)
+    is_builtin: bool = False
+
+
+class TaskDefinition(BaseModel):
+    """A user-defined task type for evaluation."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: str = ""
+    category: ToolCategory
+    input_template: str = ""
+    evaluation_criteria: str = ""
+    suggested_metrics: list[str] = Field(default_factory=list)
+    created_at: float = Field(default_factory=time.time)
+
+
+class EvalMetricWeight(BaseModel):
+    metric: str
+    weight: float
+    label: str
+    description: str = ""
+    higher_is_better: bool = True
+
+
+class EvalConfig(BaseModel):
+    """User-configured evaluation: 5 weighted metrics for a task type."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    task_id: str
+    name: str
+    metrics: list[EvalMetricWeight] = Field(default_factory=list)
+    created_at: float = Field(default_factory=time.time)
+    generated_by_ai: bool = False
+    ai_reasoning: str = ""
+
+
 class RunStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
@@ -91,6 +168,10 @@ class EvalRun(BaseModel):
     completed_at: float | None = None
     scores: list[QueryScore] = Field(default_factory=list)
     error: str | None = None
+    task_id: str | None = None
+    eval_config_id: str | None = None
+    tool_ids: list[str] = Field(default_factory=list)
+    weighted_score: dict[str, float] = Field(default_factory=dict)
 
     @property
     def summary(self) -> dict[str, dict[str, float]]:
