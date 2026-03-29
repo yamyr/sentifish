@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { sentifishApi, type EvalRunRequest, type MultiEvalRunRequest } from "@/lib/api/sentifish";
+import { sentifishApi, type EvalRunRequest, type MultiEvalRunRequest, type ToolDefinition } from "@/lib/api/sentifish";
 
 const API_BASE = import.meta.env.VITE_SENTIFISH_API_URL || "";
 
@@ -177,4 +177,24 @@ export function useRunReport(runId: string | null) {
     enabled: !!runId,
     staleTime: 60_000,
   });
+export function useTools() {
+  return useQuery({ queryKey: ["tools"], queryFn: sentifishApi.getTools, staleTime: 30_000 });
+
+export function useTasks() {
+  return useQuery({ queryKey: ["tasks"], queryFn: sentifishApi.getTasks, staleTime: 30_000 });
+
+export function useCreateTool() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: sentifishApi.createTool, onSuccess: () => qc.invalidateQueries({ queryKey: ["tools"] }) });
+
+export function useDeleteTool() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: sentifishApi.deleteTool, onSuccess: () => qc.invalidateQueries({ queryKey: ["tools"] }) });
+
+export function useCreateTask() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: sentifishApi.createTask, onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }) });
+
+export function useRecommendMetrics() {
+  return useMutation({ mutationFn: sentifishApi.recommendMetrics });
 }
