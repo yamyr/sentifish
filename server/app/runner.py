@@ -210,6 +210,35 @@ def _persist_run(run: EvalRun) -> Path:
     return path
 
 
+def _compute_weighted_score(
+    scores: list[QueryScore],
+    metric_weights: list,
+) -> dict[str, float]:
+    """Compute weighted composite score per provider using custom metric weights."""
+    by_provider: dict[str, list[QueryScore]] = {}
+    for s in scores:
+        by_provider.setdefault(s.provider, []).append(s)
+
+    result = {}
+    for provider, qs in by_provider.items():
+        n = len(qs)
+        if n == 0:
+            continue
+        total = 0.0
+        for mw in metric_weights:
+            metric = mw["metric"]
+            weight = mw["weight"]
+            vals = [getattr(s, metric, 0.0) for s in qs if hasattr(s, metric)]
+            if vals:
+                avg = sum(vals) / len(vals)
+                # Normalize latency (lower is better, cap at 10s)
+                if metric == "latency_ms":
+                    avg = max(0.0, 1.0 - avg / 10000.0)
+                total += avg * weight
+        result[provider] = round(total * 100, 1)
+    return result
+
+
 def load_persisted_runs() -> None:
     """Load all persisted runs from disk into memory on startup."""
     results_dir = Path(settings.results_dir)

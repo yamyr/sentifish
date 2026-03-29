@@ -133,6 +133,10 @@ class EvalMetricWeight(BaseModel):
     metric: str
     weight: float
     label: str
+
+    """A single metric with its weight in an evaluation config."""
+    weight: float = Field(ge=0.0, le=1.0)
+    label: str = ""
     description: str = ""
     higher_is_better: bool = True
 
@@ -147,6 +151,10 @@ class EvalConfig(BaseModel):
     created_at: float = Field(default_factory=time.time)
     generated_by_ai: bool = False
     ai_reasoning: str = ""
+
+    """Saved evaluation configuration with custom metric weights."""
+    task_id: str = ""
+    name: str = ""
 
 
 class RunStatus(StrEnum):
