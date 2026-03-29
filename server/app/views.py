@@ -442,3 +442,120 @@ def create_eval_config(body: dict):
     configs.append(config.model_dump())
     _save_eval_configs(configs)
     return {"ok": True, "eval_config": config.model_dump()}
+
+
+@router.get("/leaderboard")
+def get_leaderboard(metric: str = "composite_score", limit: int = 20):
+    """Global leaderboard: best average score per tool across all completed runs."""
+    from collections import defaultdict
+
+    runs = [r for r in runner.list_runs() if r.status == "completed"]
+
+    # Aggregate per provider
+    provider_scores: dict[str, list[float]] = defaultdict(list)
+    provider_latencies: dict[str, list[float]] = defaultdict(list)
+    provider_runs: dict[str, int] = defaultdict(int)
+
+    for run in runs:
+        summary = run.summary
+        for provider, stats in summary.items():
+            provider_runs[provider] += 1
+            provider_latencies[provider].append(stats.get("mean_latency_ms", 0))
+
+            if metric == "composite_score":
+                score = (
+                    stats.get("mean_ndcg_at_k", 0) * 0.35
+                    + stats.get("mean_precision_at_k", 0) * 0.25
+                    + stats.get("mean_recall_at_k", 0) * 0.25
+                    + stats.get("mean_mrr", 0) * 0.15
+                ) * 100
+            else:
+                score = stats.get(f"mean_{metric}", 0) * 100
+
+            provider_scores[provider].append(score)
+
+    leaderboard = []
+    for provider, scores in provider_scores.items():
+        avg_score = sum(scores) / len(scores)
+        avg_latency = sum(provider_latencies[provider]) / len(provider_latencies[provider])
+        leaderboard.append(
+            {
+                "rank": 0,  # filled below
+                "provider": provider,
+                "avg_score": round(avg_score, 1),
+                "avg_latency_ms": round(avg_latency, 1),
+                "run_count": provider_runs[provider],
+                "trend": "stable",  # could be computed from score history
+            }
+        )
+
+    leaderboard.sort(key=lambda x: x["avg_score"], reverse=True)
+    for i, entry in enumerate(leaderboard[:limit]):
+        entry["rank"] = i + 1
+
+    return {
+        "leaderboard": leaderboard[:limit],
+        "metric": metric,
+        "total_runs": len(runs),
+        "last_updated": max((r.completed_at or 0 for r in runs), default=0),
+    }
+
+
+@router.get("/runs/{run_id}/report")
+def get_run_report(run_id: str):
+    """Generate a structured comparison report for a completed run."""
+    _validate_run_id(run_id)
+    run = runner.get_run(run_id)
+    if not run or run.status != "completed":
+        raise HTTPException(400, "Run must be completed to generate report")
+
+    summary = run.summary
+
+    # Winner per metric
+    winners = {}
+    for m in [
+        "mean_ndcg_at_k",
+        "mean_precision_at_k",
+        "mean_mrr",
+        "mean_latency_ms",
+        "mean_llm_judge_score",
+    ]:
+        if m == "mean_latency_ms":
+            winner = min(summary, key=lambda p: summary[p].get(m, float("inf")))
+        else:
+            winner = max(summary, key=lambda p: summary[p].get(m, 0))
+        winners[m] = winner
+
+    # Best overall
+    composite = {
+        p: (
+            s.get("mean_ndcg_at_k", 0) * 0.35
+            + s.get("mean_precision_at_k", 0) * 0.25
+            + s.get("mean_recall_at_k", 0) * 0.25
+            + s.get("mean_mrr", 0) * 0.15
+        )
+        * 100
+        for p, s in summary.items()
+    }
+    best_overall = max(composite, key=lambda p: composite[p]) if composite else None
+
+    # Per-query breakdown: which provider won each query
+    query_winners = {}
+    queries = list({s.query for s in run.scores})
+    for query in queries:
+        query_scores = {s.provider: s.ndcg_at_k for s in run.scores if s.query == query}
+        if query_scores:
+            query_winners[query] = max(query_scores, key=lambda p: query_scores[p])
+
+    return {
+        "run_id": run_id,
+        "dataset": run.dataset_name,
+        "providers": run.providers,
+        "summary": summary,
+        "composite_scores": composite,
+        "best_overall": best_overall,
+        "metric_winners": winners,
+        "query_count": len(queries),
+        "query_winners": query_winners,
+        "duration_seconds": (run.completed_at or 0) - run.created_at,
+    }

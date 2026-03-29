@@ -80,13 +80,13 @@ const Hero = () => {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="font-sans-brand text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl"
           >
-            Know Which Search API
+            Benchmark Any AI Tool.
             <br />
             <span
               className="animate-gradient-shift bg-gradient-to-r from-brand-cyan via-brand-indigo to-brand-cyan bg-clip-text text-transparent"
               style={{ backgroundSize: "200% 200%" }}
             >
-              Actually Works
+              Find the Best for Your Task.
             </span>
           </motion.h1>
 
@@ -97,8 +97,7 @@ const Hero = () => {
             transition={{ duration: 0.6, delay: 0.25 }}
             className="mt-6 max-w-2xl font-sans-brand text-lg leading-relaxed text-white/70 sm:text-xl"
           >
-            Compare search providers head-to-head with real Information Retrieval
-            metrics. No guesswork, no vibes &mdash; just science.
+            Run standardized evaluations across any AI tool. Real metrics, AI-powered scoring, persistent leaderboards &mdash; no guesswork.
           </motion.p>
 
           {/* CTAs */}
@@ -115,6 +114,12 @@ const Hero = () => {
               <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               Start Evaluating
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            <Link
+              to="/leaderboard"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-7 py-3.5 font-sans-brand text-sm font-semibold text-white backdrop-blur-sm transition-all hover:border-white/25 hover:bg-white/10"
+            >
+              View Leaderboard
             </Link>
             <a
               href="https://github.com/yamyr/sentifish"

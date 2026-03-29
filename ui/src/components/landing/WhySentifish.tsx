@@ -1,30 +1,36 @@
 import { motion } from "framer-motion";
-import { Scale, FlaskConical, Code2, Plug } from "lucide-react";
+import { Target, FlaskConical, Plug, Zap, Trophy } from "lucide-react";
 
 const reasons = [
   {
-    title: "Unbiased Benchmarks",
+    title: "Define your task, not just queries",
     description:
-      "Same queries, same datasets, fair comparison. No provider gets preferential treatment or cherry-picked examples.",
-    Icon: Scale,
+      "Custom task types let you benchmark exactly what matters. Go beyond generic search — evaluate tools on your specific use case.",
+    Icon: Target,
   },
   {
-    title: "Real IR Metrics",
+    title: "Add any tool via API",
     description:
-      "Not vibes, actual information retrieval science. Every score is computed with peer-reviewed formulas used in academic research.",
+      "Integrate any AI tool through HTTP endpoints. Bring your own providers and compare them against the standards.",
+    Icon: Plug,
+  },
+  {
+    title: "AI-derived evaluation criteria",
+    description:
+      "Our metric recommender suggests the right evaluation criteria based on your task, so you measure what matters.",
     Icon: FlaskConical,
   },
   {
-    title: "Open Source",
+    title: "Live provider race",
     description:
-      "Fully transparent methodology. Inspect the scoring code, audit the datasets, and reproduce every benchmark yourself.",
-    Icon: Code2,
+      "Watch providers compete in real-time. See results stream in as each tool finishes, with live score updates.",
+    Icon: Zap,
   },
   {
-    title: "API-First",
+    title: "Persistent leaderboard",
     description:
-      "Integrate evaluations into your CI/CD pipeline. Catch search quality regressions before they hit production.",
-    Icon: Plug,
+      "Track performance over time across all your evaluation runs. Spot trends, compare versions, find the best tool for each task.",
+    Icon: Trophy,
   },
 ];
 
@@ -65,8 +71,7 @@ const WhySentifish = () => (
           Why <span className="bg-gradient-to-r from-brand-cyan to-brand-indigo bg-clip-text text-transparent">Sentifish?</span>
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-          Built for engineers who need data, not opinions, when choosing a
-          search provider.
+          Built for engineers who need data, not opinions, when choosing AI tools.
         </p>
       </motion.div>
 

@@ -73,9 +73,42 @@ export interface RunSummary {
     mean_recall_at_k: number;
     mean_ndcg_at_k: number;
     mean_mrr: number;
+    mean_map_at_k: number;
+    mean_content_depth: number;
+    mean_llm_judge_score: number;
     mean_latency_ms: number;
     total_queries: number;
+    composite_score: number;
   };
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  provider: string;
+  avg_score: number;
+  avg_latency_ms: number;
+  run_count: number;
+  trend: string;
+}
+
+export interface LeaderboardResponse {
+  leaderboard: LeaderboardEntry[];
+  metric: string;
+  total_runs: number;
+  last_updated: number;
+}
+
+export interface RunReportResponse {
+  run_id: string;
+  dataset: string;
+  providers: string[];
+  summary: RunSummary;
+  composite_scores: Record<string, number>;
+  best_overall: string | null;
+  metric_winners: Record<string, string>;
+  query_count: number;
+  query_winners: Record<string, string>;
+  duration_seconds: number;
 }
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -138,4 +171,12 @@ export const sentifishApi = {
 
   getNarrationAudioUrl: (runId: string) =>
     `${API_BASE}/api/runs/${runId}/narration/audio`,
+
+  getLeaderboard: (metric = "composite_score", limit = 20) =>
+    apiFetch<LeaderboardResponse>(
+      `/api/leaderboard?metric=${metric}&limit=${limit}`,
+    ),
+
+  getRunReport: (runId: string) =>
+    apiFetch<RunReportResponse>(`/api/runs/${runId}/report`),
 };

@@ -64,13 +64,21 @@ export default function Dashboard() {
               Sentifish
             </span>
           </div>
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-brand-cyan"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Home
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              to="/leaderboard"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-brand-cyan"
+            >
+              Leaderboard
+            </Link>
+            <Link
+              to="/"
+              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-brand-cyan"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Home
+            </Link>
+          </div>
         </div>
         <div className="h-px bg-gradient-to-r from-transparent via-brand-cyan/20 to-transparent" />
       </motion.nav>

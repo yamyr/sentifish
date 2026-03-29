@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   ChevronUp,
   Loader2,
   ListChecks,
+  BarChart3,
 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -175,6 +177,20 @@ export default function RecentRuns() {
                         <Clock className="h-3 w-3" />
                         {timeAgo(run.created_at)}
                       </span>
+
+                      {/* Report button */}
+                      {run.status === "completed" && (
+                        <Link
+                          to={`/report/${run.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0"
+                        >
+                          <Button variant="outline" size="sm" className="gap-1 text-xs">
+                            <BarChart3 className="h-3 w-3" />
+                            Report
+                          </Button>
+                        </Link>
+                      )}
 
                       {/* Expand toggle */}
                       {isExpanded ? (

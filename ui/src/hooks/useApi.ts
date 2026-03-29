@@ -161,3 +161,20 @@ export function useNarrationText(runId: string | null) {
     staleTime: 60_000,
   });
 }
+
+export function useLeaderboard(metric = "composite_score") {
+  return useQuery({
+    queryKey: ["leaderboard", metric],
+    queryFn: () => sentifishApi.getLeaderboard(metric),
+    staleTime: 30_000,
+  });
+}
+
+export function useRunReport(runId: string | null) {
+  return useQuery({
+    queryKey: ["runReport", runId],
+    queryFn: () => sentifishApi.getRunReport(runId!),
+    enabled: !!runId,
+    staleTime: 60_000,
+  });
+}
