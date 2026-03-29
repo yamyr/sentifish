@@ -8,6 +8,8 @@ import WhySentifish from "@/components/landing/WhySentifish";
 import Roadmap from "@/components/landing/Roadmap";
 import CtaBanner from "@/components/landing/CtaBanner";
 import Footer from "@/components/landing/Footer";
+import { useLeaderboard } from "@/hooks/useApi";
+import { Trophy } from "lucide-react";
 
 const SectionSlide = ({
   children,
@@ -26,6 +28,38 @@ const SectionSlide = ({
 const Divider = ({ dark = false }: { dark?: boolean }) => (
   <div className={dark ? "section-divider-dark" : "section-divider"} />
 );
+
+const SocialProof = () => {
+  const { data, isLoading } = useLeaderboard();
+
+  if (isLoading || !data || data.leaderboard.length === 0) {
+    return null;
+  }
+
+  const top3 = data.leaderboard.slice(0, 3);
+  const rankColors = ["text-yellow-400", "text-slate-300", "text-amber-600"];
+
+  return (
+    <section className="py-24">
+      <div className="mx-auto max-w-4xl px-6 text-center">
+        <h2 className="font-sans-brand text-2xl font-bold text-foreground mb-8">
+          Top Performers
+        </h2>
+        <div className="flex flex-wrap justify-center gap-6">
+          {top3.map((entry, i) => (
+            <div key={entry.provider} className="flex items-center gap-3 bg-card border border-border rounded-xl px-6 py-4 shadow-sm">
+              <Trophy className={`h-6 w-6 ${rankColors[i] || "text-muted-foreground"}`} />
+              <div className="text-left">
+                <div className="font-sans-brand font-semibold text-foreground capitalize">{entry.provider}</div>
+                <div className="text-sm text-muted-foreground">Score: {entry.avg_score.toFixed(1)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
 
 const Landing = () => (
   <>
@@ -49,6 +83,10 @@ const Landing = () => (
       <Divider />
       <SectionSlide>
         <WhySentifish />
+      </SectionSlide>
+      <Divider dark />
+      <SectionSlide>
+        <SocialProof />
       </SectionSlide>
       <Divider dark />
       <SectionSlide>
