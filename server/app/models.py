@@ -57,6 +57,20 @@ class QueryScore(BaseModel):
     result_count: int = 0
     results: list[SearchResult] = Field(default_factory=list)
 
+    @property
+    def composite_score(self) -> float:
+        """Weighted composite: NDCG×35 + P×25 + R×25 + MRR×15, scaled 0-100."""
+        return round(
+            (
+                self.ndcg_at_k * 0.35
+                + self.precision_at_k * 0.25
+                + self.recall_at_k * 0.25
+                + self.mrr * 0.15
+            )
+            * 100,
+            1,
+        )
+
 
 class RunStatus(StrEnum):
     PENDING = "pending"
@@ -100,5 +114,15 @@ class EvalRun(BaseModel):
                 "mean_llm_judge_score": sum(s.llm_judge_score for s in query_scores) / n,
                 "mean_latency_ms": sum(s.latency_ms for s in query_scores) / n,
                 "total_queries": n,
+                "composite_score": round(
+                    (
+                        sum(s.ndcg_at_k for s in query_scores) / n * 0.35
+                        + sum(s.precision_at_k for s in query_scores) / n * 0.25
+                        + sum(s.recall_at_k for s in query_scores) / n * 0.25
+                        + sum(s.mrr for s in query_scores) / n * 0.15
+                    )
+                    * 100,
+                    1,
+                ),
             }
         return out

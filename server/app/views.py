@@ -37,7 +37,23 @@ def _validate_run_id(run_id: str) -> str:
 @router.get("/providers")
 def list_providers():
     """List search providers with configured API keys."""
-    return {"providers": available_providers()}
+    return {
+        "providers": available_providers(),
+        "llm_judge_available": bool(settings.openai_api_key),
+    }
+
+
+@router.get("/providers/all")
+def list_all_providers():
+    """List all known providers with their availability status."""
+    from .providers import _KEY_MAP
+
+    providers = []
+    for name in PROVIDERS:
+        key_attr = _KEY_MAP.get(name, "")
+        available = bool(key_attr and getattr(settings, key_attr, ""))
+        providers.append({"name": name, "available": available})
+    return {"providers": providers}
 
 
 # -- Datasets ----------------------------------------------------------------
@@ -185,6 +201,23 @@ async def get_narration_audio(run_id: str):
     )
 
 
+@router.post("/demo-run")
+async def create_demo_run():
+    """One-click demo: sample dataset vs all available providers."""
+    try:
+        dataset = ds.load_dataset("sample")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Sample dataset not found")
+
+    provider_names = available_providers()
+    if not provider_names:
+        raise HTTPException(status_code=503, detail="No providers configured")
+
+    run = runner.create_run(dataset, provider_names, top_k=10)
+    asyncio.create_task(runner.execute_run(run, dataset, provider_names, top_k=10))
+    return {"id": run.id, "status": run.status, "providers": provider_names}
+
+
 @router.post("/runs")
 async def create_run(body: dict):
     """Trigger eval run(s).
@@ -197,7 +230,7 @@ async def create_run(body: dict):
 
     try:
         top_k = max(1, min(int(raw_top_k), 100))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         raise HTTPException(
             status_code=400,
             detail="top_k must be an integer between 1 and 100",
