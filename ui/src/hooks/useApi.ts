@@ -194,6 +194,7 @@ export function useDeleteTool() {
 export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: sentifishApi.createTask, onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }) });
+}
 
 export function useRecommendMetrics() {
   return useMutation({ mutationFn: sentifishApi.recommendMetrics });

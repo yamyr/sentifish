@@ -109,6 +109,8 @@ export interface RunReportResponse {
   query_count: number;
   query_winners: Record<string, string>;
   duration_seconds: number;
+}
+
 export interface ToolDefinition {
   id: string;
   name: string;
@@ -121,6 +123,7 @@ export interface ToolDefinition {
   builtin_provider?: string;
   is_builtin: boolean;
   created_at: number;
+}
 
 export interface TaskDefinition {
   id: string;
@@ -131,12 +134,14 @@ export interface TaskDefinition {
   evaluation_criteria: string;
   suggested_metrics: string[];
   created_at: number;
+}
 
 export interface EvalMetricWeight {
   weight: number;
   label: string;
   description: string;
   higher_is_better: boolean;
+}
 
 export interface EvalConfig {
   id: string;
@@ -146,6 +151,7 @@ export interface EvalConfig {
   generated_by_ai: boolean;
   ai_reasoning: string;
   created_at: number;
+}
 
 export interface MetricRecommendation {
   eval_config: EvalConfig;
