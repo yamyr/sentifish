@@ -137,6 +137,7 @@ export interface TaskDefinition {
 }
 
 export interface EvalMetricWeight {
+  metric: string;
   weight: number;
   label: string;
   description: string;
