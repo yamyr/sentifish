@@ -16,19 +16,6 @@ class ToolCategory(StrEnum):
     CUSTOM = "custom"
 
 
-class ToolDefinition(BaseModel):
-    """Definition of an evaluation tool (builtin provider or custom HTTP endpoint)."""
-
-    slug: str
-    name: str
-    category: ToolCategory = ToolCategory.CUSTOM
-    builtin_provider: str = ""
-    endpoint_url: str = ""
-    auth_header: str = ""
-    request_template: str = ""
-    response_path: str = ""
-
-
 class SearchResult(BaseModel):
     """A single search result returned by a provider."""
 
