@@ -7,6 +7,7 @@ import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Leaderboard from "./pages/Leaderboard";
 import Report from "./pages/Report";
+import Configure from "./pages/Configure";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/report/:runId" element={<Report />} />
+          <Route path="/configure" element={<Configure />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

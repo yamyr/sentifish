@@ -111,6 +111,55 @@ export interface RunReportResponse {
   duration_seconds: number;
 }
 
+export interface ToolDefinition {
+  id: string;
+  name: string;
+  slug: string;
+  category: "search" | "ai_assistant" | "code_generation" | "image_generation" | "data_extraction" | "summarization" | "custom";
+  input_type: "text_query" | "url" | "file" | "code";
+  output_type: "url_list" | "text" | "code" | "json" | "image_url";
+  description: string;
+  endpoint_url?: string;
+  builtin_provider?: string;
+  is_builtin: boolean;
+  created_at: number;
+}
+
+export interface TaskDefinition {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  input_template: string;
+  evaluation_criteria: string;
+  suggested_metrics: string[];
+  created_at: number;
+}
+
+export interface EvalMetricWeight {
+  metric: string;
+  weight: number;
+  label: string;
+  description: string;
+  higher_is_better: boolean;
+}
+
+export interface EvalConfig {
+  id: string;
+  task_id: string;
+  name: string;
+  metrics: EvalMetricWeight[];
+  generated_by_ai: boolean;
+  ai_reasoning: string;
+  created_at: number;
+}
+
+export interface MetricRecommendation {
+  eval_config: EvalConfig;
+  available_metrics: Record<string, { label: string; description: string; higher_is_better: boolean; applicable_to: string[] }>;
+  llm_used: boolean;
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -179,4 +228,36 @@ export const sentifishApi = {
 
   getRunReport: (runId: string) =>
     apiFetch<RunReportResponse>(`/api/runs/${runId}/report`),
+  getTools: async (): Promise<ToolDefinition[]> => {
+    const res = await fetch(`${API_BASE}/api/tools`);
+    const data = await res.json();
+    return data.tools;
+  },
+  createTool: async (tool: Partial<ToolDefinition>): Promise<ToolDefinition> => {
+    const res = await fetch(`${API_BASE}/api/tools`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(tool) });
+    if (!res.ok) throw new Error("Failed to create tool");
+    return res.json();
+  },
+  deleteTool: async (slug: string): Promise<void> => {
+    await fetch(`${API_BASE}/api/tools/${slug}`, { method: "DELETE" });
+  },
+  getTasks: async (): Promise<TaskDefinition[]> => {
+    const res = await fetch(`${API_BASE}/api/tasks`);
+    const data = await res.json();
+    return data.tasks;
+  },
+  createTask: async (task: Partial<TaskDefinition>): Promise<TaskDefinition> => {
+    const res = await fetch(`${API_BASE}/api/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(task) });
+    if (!res.ok) throw new Error("Failed to create task");
+    return res.json();
+  },
+  recommendMetrics: async (params: { task_name: string; task_description: string; task_category: string; evaluation_criteria?: string }): Promise<MetricRecommendation> => {
+    const res = await fetch(`${API_BASE}/api/tasks/recommend-metrics`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params) });
+    if (!res.ok) throw new Error("Failed to get metric recommendations");
+    return res.json();
+  },
+  getAvailableMetrics: async () => {
+    const res = await fetch(`${API_BASE}/api/metrics`);
+    return res.json();
+  },
 };

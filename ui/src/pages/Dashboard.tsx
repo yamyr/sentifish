@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Fish, ArrowLeft, Play } from "lucide-react";
+import { Fish, ArrowLeft, Play, Settings } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -70,6 +70,10 @@ export default function Dashboard() {
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-brand-cyan"
             >
               Leaderboard
+              to="/configure"
+              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-brand-cyan"
+              <Settings className="h-4 w-4" />
+              Configure
             </Link>
             <Link
               to="/"
