@@ -13,6 +13,7 @@ import InsightCard from "@/components/dashboard/InsightCard";
 import NarratorButton from "@/components/dashboard/NarratorButton";
 import NewRunDialog from "@/components/dashboard/NewRunDialog";
 import NewDatasetDialog from "@/components/dashboard/NewDatasetDialog";
+import RunProgressPanel from "@/components/dashboard/RunProgressPanel";
 import DatasetList from "@/components/dashboard/DatasetList";
 import { useRuns, useDemoRun } from "@/hooks/useApi";
 import { toast } from "sonner";
@@ -22,6 +23,9 @@ export default function Dashboard() {
   const [newDatasetOpen, setNewDatasetOpen] = useState(false);
   const { data: runs } = useRuns();
   const demoRun = useDemoRun();
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const isEmpty = !runs || runs.length === 0;
+  const triggerDemo = demoRun;
 
   const latestCompletedRunId =
     runs
