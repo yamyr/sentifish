@@ -12,38 +12,39 @@ import RecentRuns from "@/components/dashboard/RecentRuns";
 import InsightCard from "@/components/dashboard/InsightCard";
 import NarratorButton from "@/components/dashboard/NarratorButton";
 import NewRunDialog from "@/components/dashboard/NewRunDialog";
-import RunProgressPanel from "@/components/dashboard/RunProgressPanel";
-import { useRuns, useTriggerDemoRun } from "@/hooks/useApi";
+import NewDatasetDialog from "@/components/dashboard/NewDatasetDialog";
+import DatasetList from "@/components/dashboard/DatasetList";
+import { useRuns, useDemoRun } from "@/hooks/useApi";
 import { toast } from "sonner";
 
 export default function Dashboard() {
   const [newRunOpen, setNewRunOpen] = useState(false);
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [newDatasetOpen, setNewDatasetOpen] = useState(false);
   const { data: runs } = useRuns();
-  const triggerDemo = useTriggerDemoRun();
+  const demoRun = useDemoRun();
 
   const latestCompletedRunId =
     runs
       ?.filter((r) => r.status === "completed")
       .sort((a, b) => b.created_at - a.created_at)[0]?.id ?? null;
 
-  const isEmpty = runs?.length === 0;
-
-  const handleDemoRun = async () => {
-    try {
-      const result = await triggerDemo.mutateAsync();
-      setActiveRunId(result.id);
-      toast.success("Demo evaluation started");
-    } catch (err) {
-      toast.error("Failed to start demo", {
-        description: err instanceof Error ? err.message : "Unknown error",
-      });
-    }
+  const handleDemoRun = () => {
+    demoRun.mutate(undefined, {
+      onSuccess: (data) => {
+        toast.info(
+          `Demo starting — ${data.providers.join(", ")} racing on sample queries…`,
+        );
+      },
+      onError: (err) => {
+        toast.error("Demo run failed", {
+          description: err instanceof Error ? err.message : "Unknown error",
+        });
+      },
+    });
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Nav bar */}
       <motion.nav
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -70,9 +71,13 @@ export default function Dashboard() {
         <div className="h-px bg-gradient-to-r from-transparent via-brand-cyan/20 to-transparent" />
       </motion.nav>
 
-      {/* Main content */}
-        <main className="mx-auto max-w-6xl px-4 py-4 sm:py-8 sm:px-6 space-y-10">
-        <DashboardHeader onNewRun={() => setNewRunOpen(true)} />
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-10">
+        <DashboardHeader
+          onNewRun={() => setNewRunOpen(true)}
+          onDemoRun={handleDemoRun}
+          isDemoRunning={demoRun.isPending}
+          onNewDataset={() => setNewDatasetOpen(true)}
+        />
 
         {activeRunId && (
           <RunProgressPanel
@@ -113,10 +118,12 @@ export default function Dashboard() {
           <>
             <StatCards />
 
-            <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-              <ProviderComparison />
-              <TrendChart />
-            </div>
+        <DatasetList />
+
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
+          <ProviderComparison />
+          <TrendChart />
+        </div>
 
             <InsightCard />
 
@@ -127,11 +134,8 @@ export default function Dashboard() {
         <RecentRuns />
       </main>
 
-      <NewRunDialog
-        open={newRunOpen}
-        onOpenChange={setNewRunOpen}
-        onRunStarted={(id) => setActiveRunId(id)}
-      />
+      <NewRunDialog open={newRunOpen} onOpenChange={setNewRunOpen} />
+      <NewDatasetDialog open={newDatasetOpen} onOpenChange={setNewDatasetOpen} />
     </div>
   );
 }

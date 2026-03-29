@@ -96,6 +96,54 @@ export function useTriggerDemoRun() {
 }
 
 
+export function useDemoRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const API_BASE = import.meta.env.VITE_SENTIFISH_API_URL || "";
+      const res = await fetch(`${API_BASE}/api/demo-run`, { method: "POST" });
+      if (!res.ok) throw new Error("Demo run failed");
+      return res.json() as Promise<{ id: string; status: string; providers: string[] }>;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["runs"] });
+    },
+  });
+}
+
+export function useCreateDataset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      name: string;
+      description: string;
+      cases: Array<{ query: string; relevant_urls: string[] }>;
+    }) =>
+      sentifishApi.createDataset({
+        name: body.name,
+        description: body.description,
+        cases: body.cases.map((c) => ({
+          ...c,
+          tags: [],
+          metadata: {},
+        })),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["datasets"] });
+    },
+  });
+}
+
+export function useDeleteDataset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => sentifishApi.deleteDataset(name),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["datasets"] });
+    },
+  });
+}
+
 export function useHealth() {
   return useQuery({
     queryKey: ["health"],

@@ -2,13 +2,21 @@ import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useProviders } from "@/hooks/useApi";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Zap, Database } from "lucide-react";
 
 interface DashboardHeaderProps {
   onNewRun: () => void;
+  onDemoRun?: () => void;
+  isDemoRunning?: boolean;
+  onNewDataset?: () => void;
 }
 
-export default function DashboardHeader({ onNewRun }: DashboardHeaderProps) {
+export default function DashboardHeader({
+  onNewRun,
+  onDemoRun,
+  isDemoRunning,
+  onNewDataset,
+}: DashboardHeaderProps) {
   const { data: providers, isLoading } = useProviders();
 
   return (
@@ -43,11 +51,39 @@ export default function DashboardHeader({ onNewRun }: DashboardHeaderProps) {
           Tavily, Exa, and TinyFish.
         </p>
       </div>
-      <Button onClick={onNewRun} className="relative overflow-hidden gap-2 shrink-0">
-        <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-        <Plus className="h-4 w-4" />
-        New Evaluation Run
-      </Button>
+      <div className="flex items-center gap-2 shrink-0">
+        {onNewDataset && (
+          <Button variant="outline" onClick={onNewDataset} className="gap-2">
+            <Database className="h-4 w-4" />
+            New Dataset
+          </Button>
+        )}
+        {onDemoRun && (
+          <Button
+            variant="outline"
+            onClick={onDemoRun}
+            disabled={isDemoRunning}
+            className="gap-2 border-brand-cyan/30 text-brand-cyan hover:bg-brand-cyan/10"
+          >
+            {isDemoRunning ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Demo running…
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4" />
+                Quick Demo
+              </>
+            )}
+          </Button>
+        )}
+        <Button onClick={onNewRun} className="relative overflow-hidden gap-2">
+          <span className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+          <Plus className="h-4 w-4" />
+          New Evaluation Run
+        </Button>
+      </div>
     </motion.div>
   );
 }
