@@ -64,6 +64,7 @@ export default function RecentRuns() {
 
   return (
     <motion.div
+      data-recent-runs
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.25 }}
@@ -182,7 +183,7 @@ export default function RecentRuns() {
                         exit={{ opacity: 0, height: 0 }}
                         className="border-t px-3 pb-3 pt-2"
                       >
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto -mx-4 px-4">
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="text-muted-foreground">

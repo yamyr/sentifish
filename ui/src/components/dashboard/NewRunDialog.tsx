@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { useDatasets, useProviders, useTriggerRun, useTriggerMultiRun } from "@/hooks/useApi";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useDatasets, useAllProviders, useTriggerRun, useTriggerMultiRun } from "@/hooks/useApi";
 import type { SearchProvider } from "@/lib/api/sentifish";
 import { toast } from "sonner";
 import { Loader2, Play } from "lucide-react";
@@ -18,17 +24,25 @@ import { Loader2, Play } from "lucide-react";
 interface NewRunDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onRunStarted?: (runId: string) => void;
 }
 
-export default function NewRunDialog({ open, onOpenChange }: NewRunDialogProps) {
+export default function NewRunDialog({ open, onOpenChange, onRunStarted }: NewRunDialogProps) {
   const { data: datasets, isLoading: datasetsLoading } = useDatasets();
-  const { data: providers, isLoading: providersLoading } = useProviders();
+  const { data: allProviders, isLoading: providersLoading } = useAllProviders();
   const triggerRun = useTriggerRun();
   const triggerMultiRun = useTriggerMultiRun();
 
   const [selectedDatasets, setSelectedDatasets] = useState<Set<string>>(new Set());
   const [selectedProviders, setSelectedProviders] = useState<Set<string>>(new Set());
   const [topK, setTopK] = useState(10);
+
+  useEffect(() => {
+    if (open && allProviders) {
+      const available = allProviders.filter((p) => p.available).map((p) => p.name);
+      setSelectedProviders(new Set(available));
+    }
+  }, [open, allProviders]);
 
   const toggleDataset = (name: string) => {
     setSelectedDatasets((prev) => {
@@ -41,7 +55,6 @@ export default function NewRunDialog({ open, onOpenChange }: NewRunDialogProps) 
       return next;
     });
   };
-
 
   const toggleProvider = (provider: string) => {
     setSelectedProviders((prev) => {
@@ -65,21 +78,25 @@ export default function NewRunDialog({ open, onOpenChange }: NewRunDialogProps) 
       const datasetArray = Array.from(selectedDatasets);
 
       if (datasetArray.length === 1) {
-        await triggerRun.mutateAsync({
+        const result = await triggerRun.mutateAsync({
           dataset: datasetArray[0],
           providers: providerArray,
           top_k: topK,
         });
+        onRunStarted?.(result.id);
       } else {
-        await triggerMultiRun.mutateAsync({
+        const result = await triggerMultiRun.mutateAsync({
           datasets: datasetArray,
           providers: providerArray,
           top_k: topK,
         });
+        if (result.runs?.[0]) {
+          onRunStarted?.(result.runs[0].id);
+        }
       }
 
       toast.success("Evaluation started", {
-        description: `${datasetArray.length} dataset(s) \u00d7 ${selectedProviders.size} provider(s)`,
+        description: `${datasetArray.length} dataset(s) × ${selectedProviders.size} provider(s)`,
       });
       onOpenChange(false);
       setSelectedDatasets(new Set());
@@ -103,7 +120,7 @@ export default function NewRunDialog({ open, onOpenChange }: NewRunDialogProps) 
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          {/* Dataset selector - checkboxes */}
+          {/* Dataset selector */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Datasets</Label>
@@ -175,35 +192,60 @@ export default function NewRunDialog({ open, onOpenChange }: NewRunDialogProps) 
                 Loading providers...
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {providers?.map((provider) => (
-                  <button
-                    key={provider}
-                    type="button"
-                    onClick={() => toggleProvider(provider)}
-                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                      selectedProviders.has(provider)
-                        ? "border-brand-indigo bg-brand-indigo/10 text-brand-indigo"
-                        : "border-border bg-card text-muted-foreground hover:bg-secondary"
-                    }`}
-                  >
-                    <div
-                      className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
-                        selectedProviders.has(provider)
-                          ? "border-brand-indigo bg-brand-indigo"
-                          : "border-muted-foreground/40"
-                      }`}
-                    >
-                      {selectedProviders.has(provider) && (
-                        <svg viewBox="0 0 12 12" className="h-3 w-3 text-white" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M2 6l3 3 5-5" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className="capitalize">{provider}</span>
-                  </button>
-                ))}
-              </div>
+              <TooltipProvider>
+                <div className="grid grid-cols-2 gap-2">
+                  {allProviders?.map((provider) => {
+                    const isAvailable = provider.available;
+                    const isSelected = selectedProviders.has(provider.name);
+
+                    const btn = (
+                      <button
+                        key={provider.name}
+                        type="button"
+                        onClick={() => isAvailable && toggleProvider(provider.name)}
+                        disabled={!isAvailable}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                          !isAvailable
+                            ? "opacity-40 cursor-not-allowed border-border bg-card text-muted-foreground"
+                            : isSelected
+                              ? "border-brand-indigo bg-brand-indigo/10 text-brand-indigo"
+                              : "border-border bg-card text-muted-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        <div
+                          className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
+                            !isAvailable
+                              ? "border-muted-foreground/20"
+                              : isSelected
+                                ? "border-brand-indigo bg-brand-indigo"
+                                : "border-muted-foreground/40"
+                          }`}
+                        >
+                          {isSelected && isAvailable && (
+                            <svg viewBox="0 0 12 12" className="h-3 w-3 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M2 6l3 3 5-5" />
+                            </svg>
+                          )}
+                        </div>
+                        <span className="capitalize">{provider.name}</span>
+                      </button>
+                    );
+
+                    if (!isAvailable) {
+                      return (
+                        <Tooltip key={provider.name}>
+                          <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                          <TooltipContent>
+                            <p>No API key configured</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    }
+
+                    return btn;
+                  })}
+                </div>
+              </TooltipProvider>
             )}
           </div>
 

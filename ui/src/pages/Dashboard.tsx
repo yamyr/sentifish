@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Fish, ArrowLeft } from "lucide-react";
+import { Fish, ArrowLeft, Play } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import StatCards from "@/components/dashboard/StatCards";
 import ProviderComparison from "@/components/dashboard/ProviderComparison";
@@ -11,16 +12,34 @@ import RecentRuns from "@/components/dashboard/RecentRuns";
 import InsightCard from "@/components/dashboard/InsightCard";
 import NarratorButton from "@/components/dashboard/NarratorButton";
 import NewRunDialog from "@/components/dashboard/NewRunDialog";
-import { useRuns } from "@/hooks/useApi";
+import RunProgressPanel from "@/components/dashboard/RunProgressPanel";
+import { useRuns, useTriggerDemoRun } from "@/hooks/useApi";
+import { toast } from "sonner";
 
 export default function Dashboard() {
   const [newRunOpen, setNewRunOpen] = useState(false);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const { data: runs } = useRuns();
+  const triggerDemo = useTriggerDemoRun();
 
   const latestCompletedRunId =
     runs
       ?.filter((r) => r.status === "completed")
       .sort((a, b) => b.created_at - a.created_at)[0]?.id ?? null;
+
+  const isEmpty = runs?.length === 0;
+
+  const handleDemoRun = async () => {
+    try {
+      const result = await triggerDemo.mutateAsync();
+      setActiveRunId(result.id);
+      toast.success("Demo evaluation started");
+    } catch (err) {
+      toast.error("Failed to start demo", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -52,27 +71,67 @@ export default function Dashboard() {
       </motion.nav>
 
       {/* Main content */}
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-10">
+        <main className="mx-auto max-w-6xl px-4 py-4 sm:py-8 sm:px-6 space-y-10">
         <DashboardHeader onNewRun={() => setNewRunOpen(true)} />
+
+        {activeRunId && (
+          <RunProgressPanel
+            runId={activeRunId}
+            onDismiss={() => setActiveRunId(null)}
+          />
+        )}
 
         <Separator />
 
-        <StatCards />
+        {isEmpty ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+            <div className="h-16 w-16 rounded-2xl bg-brand-cyan/10 ring-1 ring-brand-cyan/20 flex items-center justify-center">
+              <Fish className="h-8 w-8 text-brand-cyan" />
+            </div>
+            <h2 className="text-xl font-semibold font-sans-brand">Run your first evaluation</h2>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              Compare search providers head-to-head with real IR metrics. It takes about 30 seconds.
+            </p>
+            <Button onClick={() => setNewRunOpen(true)} className="gap-2">
+              <Play className="h-4 w-4" />
+              Start Evaluation
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Or try the{" "}
+              <button
+                type="button"
+                className="underline text-brand-cyan"
+                onClick={handleDemoRun}
+                disabled={triggerDemo.isPending}
+              >
+                one-click demo
+              </button>{" "}
+              — no config needed if sample dataset is available.
+            </p>
+          </div>
+        ) : (
+          <>
+            <StatCards />
 
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-          <ProviderComparison />
-          <TrendChart />
-        </div>
+            <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
+              <ProviderComparison />
+              <TrendChart />
+            </div>
 
-        <InsightCard />
+            <InsightCard />
 
-        <NarratorButton runId={latestCompletedRunId} />
+            <NarratorButton runId={latestCompletedRunId} />
+          </>
+        )}
 
         <RecentRuns />
       </main>
 
-      {/* New run dialog */}
-      <NewRunDialog open={newRunOpen} onOpenChange={setNewRunOpen} />
+      <NewRunDialog
+        open={newRunOpen}
+        onOpenChange={setNewRunOpen}
+        onRunStarted={(id) => setActiveRunId(id)}
+      />
     </div>
   );
 }

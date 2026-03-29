@@ -6,8 +6,9 @@ import asyncio
 import logging
 import re
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.responses import StreamingResponse
+from fastapi.security import APIKeyHeader
 
 from . import datasets as ds
 from . import narrator
@@ -18,6 +19,19 @@ from .providers import PROVIDERS, available_providers
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
+
+_api_key_header = APIKeyHeader(name="X-Api-Key", auto_error=False)
+
+
+def _require_write_auth(
+    x_api_key: str | None = Security(_api_key_header),
+) -> None:
+    """No-op if API_KEY is not configured. Raises 401 if key is wrong."""
+    if not settings.api_key:
+        return  # Auth disabled
+    if x_api_key != settings.api_key:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
 
 _UUID_RE = re.compile(
     r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
@@ -81,7 +95,7 @@ def get_dataset(name: str):
     return dataset.model_dump()
 
 
-@router.post("/datasets")
+@router.post("/datasets", dependencies=[Depends(_require_write_auth)])
 def create_dataset(body: dict):
     try:
         dataset = ds.load_dataset_from_dict(body)
@@ -94,7 +108,7 @@ def create_dataset(body: dict):
     return {"ok": True, "name": dataset.name, "cases": dataset.size}
 
 
-@router.delete("/datasets/{name}")
+@router.delete("/datasets/{name}", dependencies=[Depends(_require_write_auth)])
 def delete_dataset(name: str):
     if not ds.delete_dataset(name):
         raise HTTPException(status_code=404, detail=f"Dataset not found: {name!r}")
@@ -201,7 +215,7 @@ async def get_narration_audio(run_id: str):
     )
 
 
-@router.post("/demo-run")
+@router.post("/demo-run", dependencies=[Depends(_require_write_auth)])
 async def create_demo_run():
     """One-click demo: sample dataset vs all available providers."""
     try:
@@ -218,7 +232,7 @@ async def create_demo_run():
     return {"id": run.id, "status": run.status, "providers": provider_names}
 
 
-@router.post("/runs")
+@router.post("/runs", dependencies=[Depends(_require_write_auth)])
 async def create_run(body: dict):
     """Trigger eval run(s).
 

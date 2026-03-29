@@ -128,58 +128,63 @@ export default function ProviderComparison() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Provider legend */}
-          <div className="flex flex-wrap gap-4">
-            {providers.map((p) => (
-              <div key={p} className="flex items-center gap-2">
-                <div
-                  className={`h-3.5 w-3.5 rounded-full ring-2 ring-offset-2 ring-offset-card ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"} ${PROVIDER_COLORS[p] ? PROVIDER_COLORS[p].replace("bg-", "ring-") : "ring-muted-foreground"}`}
-                />
-                <span className="text-sm font-medium capitalize">{p}</span>
+          <div className="overflow-x-auto">
+            <div className="min-w-[400px]">
+              {/* Provider legend */}
+              <div className="flex flex-wrap gap-4">
+                {providers.map((p) => (
+                  <div key={p} className="flex items-center gap-2">
+                    <div
+                      className={`h-3.5 w-3.5 rounded-full ring-2 ring-offset-2 ring-offset-card ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"} ${PROVIDER_COLORS[p] ? PROVIDER_COLORS[p].replace("bg-", "ring-") : "ring-muted-foreground"}`}
+                    />
+                    <span className="text-sm font-medium capitalize">{p}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Metric bars */}
-          <div className="space-y-5">
-            {BAR_METRICS.map(({ key, label }) => (
-              <div key={key}>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {label}
-                </p>
-                <div className="space-y-1.5">
-                  {providers.map((p) => {
-                    const val = metrics[p][key];
-                    const pct = val * 100;
-                    return (
-                      <div key={p} className="flex items-center gap-3">
-                        <span className="w-16 text-right text-sm font-medium font-sans-brand capitalize text-muted-foreground">
-                          {p}
-                        </span>
-                        <div className="relative flex-1 h-6 rounded-full bg-secondary/70 overflow-hidden">
-                          <motion.div
-                            className={`h-full rounded-full ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"}`}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
-                          >
-                            {pct > 30 && (
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 font-mono-brand text-[10px] font-bold text-white/90">
-                                {val.toFixed(2)}
-                              </span>
-                            )}
-                          </motion.div>
-                        </div>
-                        <span className="w-12 text-right font-mono-brand text-xs font-semibold">
-                          {val.toFixed(2)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+              {/* Metric bars */}
+              <div className="space-y-5 mt-6">
+                {BAR_METRICS.map(({ key, label }) => (
+                  <div key={key}>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {label}
+                    </p>
+                    <div className="space-y-1.5">
+                      {providers.map((p) => {
+                        const val = metrics[p][key];
+                        const pct = val * 100;
+                        return (
+                          <div key={p} className="flex items-center gap-3">
+                            <span className="w-16 text-right text-sm font-medium font-sans-brand capitalize text-muted-foreground">
+                              {p}
+                            </span>
+                            <div className="relative flex-1 h-6 rounded-full bg-secondary/70 overflow-hidden">
+                              <motion.div
+                                className={`h-full rounded-full ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"}`}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${pct}%` }}
+                                transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
+                              >
+                                {pct > 30 && (
+                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 font-mono-brand text-[10px] font-bold text-white/90">
+                                    {val.toFixed(2)}
+                                  </span>
+                                )}
+                              </motion.div>
+                            </div>
+                            <span className="w-12 text-right font-mono-brand text-xs font-semibold">
+                              {val.toFixed(2)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
+          <p className="text-xs text-muted-foreground text-center sm:hidden">&larr; Scroll to compare &rarr;</p>
 
           {/* Latency grid */}
           <div>
