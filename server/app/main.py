@@ -9,6 +9,8 @@ from rich.logging import RichHandler
 
 from .config import settings
 from .runner import load_persisted_runs
+from .task_registry import load_persisted_tasks
+from .tool_registry import load_persisted_tools
 from .views import router as views_router
 
 logging.basicConfig(
@@ -26,6 +28,8 @@ async def lifespan(app):
     results_path = Path(settings.results_dir)
     results_path.mkdir(parents=True, exist_ok=True)
     load_persisted_runs()
+    load_persisted_tools()
+    load_persisted_tasks()
     logger.info(
         "Sentifish started — results dir: %s (%d runs loaded)",
         results_path.resolve(),

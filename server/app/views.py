@@ -13,6 +13,8 @@ from fastapi.security import APIKeyHeader
 from . import datasets as ds
 from . import narrator
 from . import runner
+from . import task_registry
+from . import tool_registry
 from .config import settings
 from .providers import PROVIDERS, available_providers
 
@@ -294,3 +296,44 @@ async def create_run(body: dict):
         results.append({"id": run.id, "dataset": dataset.name, "status": run.status})
 
     return {"runs": results}
+
+
+# -- Tools -------------------------------------------------------------------
+
+
+@router.get("/tools")
+def list_tools_endpoint():
+    return {"tools": [t.model_dump() for t in tool_registry.list_tools()]}
+
+
+@router.post("/tools", dependencies=[Depends(_require_write_auth)])
+async def create_tool(body: dict):
+    from .models import ToolDefinition
+
+    tool = ToolDefinition(**body)
+    tool_registry.register_tool(tool)
+    return tool.model_dump()
+
+
+@router.delete("/tools/{slug}", dependencies=[Depends(_require_write_auth)])
+def delete_tool(slug: str):
+    if not tool_registry.delete_tool(slug):
+        raise HTTPException(404, "Tool not found or is a built-in")
+    return {"ok": True}
+
+
+# -- Tasks -------------------------------------------------------------------
+
+
+@router.get("/tasks")
+def list_tasks():
+    return {"tasks": [t.model_dump() for t in task_registry.list_tasks()]}
+
+
+@router.post("/tasks", dependencies=[Depends(_require_write_auth)])
+async def create_task(body: dict):
+    from .models import TaskDefinition
+
+    task = TaskDefinition(**body)
+    task_registry.register_task(task)
+    return task.model_dump()
