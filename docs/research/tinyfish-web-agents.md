@@ -1,681 +1,608 @@
-# TinyFish: Browser Automation API for Agentic Web Research
+# TinyFish Web Agent: Browser Automation API for Agentic Workflows
 
-> Research compiled: March 2026  
-> Topics: TinyFish / AgentQL, SSE API, agent goals, structured extraction, research agent use cases, comparison with Playwright/Puppeteer/Stagehand
-
----
-
-## Overview
-
-TinyFish is an enterprise infrastructure platform for AI web agents. It provides a fully managed, serverless browser automation service accessible via a simple REST API. Rather than requiring developers to manage browser instances, handle bot detection, route through proxies, and manage AI inference costs separately, TinyFish bundles all of this into a single per-task pricing model.
-
-TinyFish operates two distinct but related products:
-1. **TinyFish Web Agent** — a high-level goal-based API (`run-sse`) where you describe *what* you want done and the agent figures out *how*
-2. **AgentQL** — a lower-level query language and SDK for precise, semantic web scraping and automation built on top of Playwright
-
-Both are developed by the same company (tinyfish-io on GitHub) and share the same infrastructure. AgentQL is open-source; the TinyFish Web Agent platform is a commercial managed service built on top of it.
+> Comprehensive research note on TinyFish — what it is, how it works (SSE streaming, browser automation), API design, result formats, comparison with alternatives, and integration patterns for coding agents.
 
 ---
 
-## Company & Product Background
+## 1. What Is TinyFish?
 
-- **GitHub organization**: `tinyfish-io`
-- **Main repositories**: `agentql` (open-source), `tinyfish-cookbook` (examples), `agentql-mcp` (MCP server), `agentql-integrations`
-- **Target market**: Enterprise teams needing scalable, reliable web data operations for AI pipelines
-- **Key differentiator**: All-inclusive pricing (no separate browser, proxy, AI inference bills)
-- **Scale**: Up to 1,000 simultaneous web operations across hundreds of sites
+**TinyFish** (tinyfish.ai) is enterprise infrastructure for agentic web automation. It provides a single API that lets AI agents navigate real websites, authenticate, extract data, click buttons, fill forms, and transact — with full JavaScript execution — at scale.
 
-From the company's positioning:
-> "TinyFish is an agentic web infrastructure platform built for enterprise-scale web data operations. Unlike traditional automation tools or search platforms, TinyFish delivers live data extraction from dynamic sites — including those behind logins, forms, and paywalls."
+From their homepage:
+> "The web wasn't built for agents. We're fixing that. Enterprise infrastructure for web data operations. Run hundreds of sites at once. Navigate, authenticate, extract, transact. Serverless architecture. No browsers to manage. No proxies to configure."
+
+### The Core Problem TinyFish Solves
+
+Traditional approaches to web data fall into a triangle of trade-offs:
+
+| Approach | Speed | Freshness | Scale | Authenticated Sites |
+|---------|-------|----------|-------|---------------------|
+| Manual human | Slow | ✅ Live | ❌ Low | ✅ Yes |
+| Static scraping (requests/bs4) | Fast | ❌ HTML-only | ✅ High | ❌ Hard |
+| Search APIs (Brave/Serper/Tavily) | Fast | ❌ Indexed | ✅ High | ❌ No |
+| Browser automation (Playwright/Selenium) | Slow to set up | ✅ Live | ❌ Hard to scale | ✅ Yes |
+| **TinyFish** | Fast | ✅ Live | ✅ High | ✅ Yes |
+
+**Key insight from TinyFish**: "Traditional automation can navigate authenticated sites but can't scale. Search platforms are fast but return stale data. Manual processes are accurate but slow. TinyFish delivers fresh data at production speed and scale."
 
 ---
 
-## The TinyFish Web Agent API
+## 2. Five Architectural Shifts
 
-### Core Endpoint: `POST /v1/automation/run-sse`
+TinyFish is built on five architectural innovations that enable live execution on dynamic sites at scale:
 
-The primary API is a single SSE (Server-Sent Events) streaming endpoint:
+1. **Serverless browser execution**: No persistent browser instances to manage. Each automation spins up a fresh, isolated browser on demand.
+2. **Anti-detection browsers**: Stealth mode with behavioral fingerprinting evasion for bot-protected sites (Cloudflare, DataDome).
+3. **Integrated proxy network**: Residential proxies across US, GB, CA, DE, FR, JP, AU included in the platform — no separate proxy configuration.
+4. **SSE streaming**: Real-time event stream shows automation progress as it happens, enabling responsive UIs and agent feedback loops.
+5. **Natural language goals**: No CSS selectors, XPath, or DOM inspection needed — the agent understands plain English instructions and figures out the DOM itself.
+
+---
+
+## 3. API Design
+
+### Base URL
+
+```
+https://agent.tinyfish.ai
+```
+
+### Authentication
 
 ```bash
-curl --request POST \
-  --url https://agent.tinyfish.ai/v1/automation/run-sse \
-  --header 'Content-Type: application/json' \
-  --header 'X-API-Key: TINYFISH_API_KEY' \
-  --data '{
-    "url": "https://amazon.com",
-    "goal": "Find me the price of airpods pro 3",
-    "proxy_config": {
-      "enabled": false
-    }
-  }'
+X-API-Key: sk-tinyfish-*****
 ```
 
-### Request Parameters
+API keys are created at `https://agent.tinyfish.ai/api-keys`. They are shown only once — store securely, never commit to version control.
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `url` | string | Starting URL for the agent |
-| `goal` | string | Natural language task description |
-| `browser_profile` | string | `"lite"` (fast) or `"full"` (more capable) |
-| `proxy_config` | object | Proxy settings including country code |
-| `api_integration` | string | Integration target: `"dify"`, `"langchain"`, etc. |
-| `feature_flags` | object | Feature toggles like `enable_agent_memory` |
+### Execution Modes
 
-### SSE Response Stream
+TinyFish offers three execution modes:
 
-The API streams progress events in real-time:
-
-```
-data: {"type":"STARTED","runId":"run_123","timestamp":"2025-01-01T00:00:00Z"}
-
-data: {"type":"STREAMING_URL","runId":"run_123","streamingUrl":"https://...","timestamp":"..."}
-
-data: {"type":"PROGRESS","runId":"run_123","purpose":"Navigating to product page","timestamp":"..."}
-
-data: {"type":"PROGRESS","runId":"run_123","purpose":"Clicking submit button","timestamp":"..."}
-
-data: {"type":"COMPLETE","runId":"run_123","status":"COMPLETED","resultJson":{...},"timestamp":"..."}
-```
-
-**Event types:**
-- `STARTED` — Agent initialized
-- `STREAMING_URL` — Live browser view URL (can watch the agent work in real-time)
-- `PROGRESS` — Step-by-step progress updates with human-readable descriptions
-- `COMPLETE` — Task finished with structured result JSON
-- `ERROR` — Task failed with error details
-
-### Why SSE (Not WebSocket, Not Polling)?
-
-SSE is a good choice for this use case because:
-- **One-directional**: Client only needs to receive updates, not send them
-- **HTTP/1.1 compatible**: Works through proxies, firewalls, load balancers
-- **Simple**: Standard `EventSource` API in browsers, easy in any HTTP client
-- **Resumable**: Can reconnect and resume from last event ID
-- **No polling overhead**: Pushed events vs. repeated GET requests
+| Mode | Endpoint | When to Use |
+|------|----------|------------|
+| **SSE Streaming** | `POST /v1/automation/run-sse` | Interactive UIs, agent feedback loops, observability |
+| **Synchronous** | `POST /v1/automation/run` | Simple scripts, when you need one result |
+| **Async (queue)** | `POST /v1/automation/run-async` | Batch processing, long-running tasks |
+| **Bulk Async** | `POST /v1/automation/run-async-bulk` | Up to 100 runs in one request |
 
 ---
 
-## AgentQL: The Query Language
+## 4. Core API: SSE Streaming Endpoint
 
-AgentQL is TinyFish's open-source library for semantic web element selection. It solves one of the core brittle points in traditional web automation: **selectors break when websites change**.
-
-### Traditional Selector Problems
-
-```python
-# CSS selector — brittle
-page.click("#buybox-see-all-buying-choices-announce")  # breaks if ID changes
-
-# XPath — brittle  
-page.click("//div[@class='a-section a-spacing-none']//input")  # breaks on redesign
+```
+POST /v1/automation/run-sse
+Content-Type: application/json
+X-API-Key: YOUR_KEY
 ```
 
-### AgentQL Semantic Selectors
-
-```python
-import agentql
-from playwright.sync_api import sync_playwright
-
-with sync_playwright() as p:
-    browser = p.chromium.launch()
-    page = agentql.wrap(browser.new_page())
-    page.goto("https://amazon.com/product/B09JQMJHXY")
-    
-    # Natural language query — resilient to UI changes
-    response = page.query_elements("""
-    {
-        add_to_cart_button
-        product_price
-        product_rating
-        review_count
-    }
-    """)
-    
-    price = response.product_price.inner_text()
-    response.add_to_cart_button.click()
-```
-
-**How it works:**
-1. AgentQL sends the DOM to its AI service
-2. AI maps query keys to actual page elements using semantic understanding
-3. Returns Playwright element handles for matched elements
-4. Elements can be clicked, read, filled like normal Playwright elements
-
-### Self-Healing Selectors
-
-The key capability: AgentQL selectors **don't break when the website redesigns**, because they're based on *meaning*, not *structure*:
-- `add_to_cart_button` works whether the button says "Add to Cart", "Buy Now", or "Purchase"
-- `product_price` works regardless of what CSS class wraps the price
-- Selectors work across *similar* websites (e.g., multiple e-commerce sites)
-
-### Data Extraction Mode
-
-Beyond element selection, AgentQL can extract structured data:
-
-```python
-# Extract structured data from any page
-data = page.query_data("""
-{
-    product {
-        name
-        price
-        description
-        specifications[] {
-            key
-            value
-        }
-        reviews[] {
-            author
-            rating
-            content
-        }
-    }
-}
-""")
-# Returns a Python dict matching the query structure
-```
-
-This is similar to GraphQL for the web — define the schema you want, get back structured data.
-
-### Natural Language Mode
-
-For even simpler use cases, pure natural language:
-
-```python
-# Natural language data extraction
-data = page.query_data(
-    "Extract all pricing plans with their names, prices, and included features"
-)
-```
-
----
-
-## AgentQL MCP Server
-
-TinyFish provides a Model Context Protocol (MCP) server so AI assistants can use AgentQL directly as a tool:
+### Request Schema
 
 ```json
-// Claude Desktop config
 {
-  "mcpServers": {
-    "agentql": {
-      "command": "npx",
-      "args": ["agentql-mcp"],
-      "env": {
-        "AGENTQL_API_KEY": "your-key-here"
+  "url": "https://example.com",              // Required: target website
+  "goal": "Extract all product prices",       // Required: natural language task
+  "browser_profile": "lite",                  // Optional: "lite" (default) or "stealth"
+  "proxy_config": {
+    "enabled": true,
+    "country_code": "US"                      // US, GB, CA, DE, FR, JP, AU
+  },
+  "use_vault": false,                          // Opt-in to credential vault
+  "credential_item_ids": ["item_abc123"],      // Scope vault to specific credentials
+  "api_integration": "langchain"               // Analytics tracking
+}
+```
+
+### SSE Event Stream
+
+The response is a `text/event-stream` with these event types:
+
+```
+data: {"type":"STARTED","run_id":"run_abc123","timestamp":"2025-01-01T00:00:00Z"}
+
+data: {"type":"STREAMING_URL","run_id":"run_abc123","streaming_url":"https://tf-abc123.fra0-tinyfish.unikraft.app/stream/0","timestamp":"..."}
+
+data: {"type":"PROGRESS","run_id":"run_abc123","purpose":"Visiting the product page","timestamp":"..."}
+
+data: {"type":"PROGRESS","run_id":"run_abc123","purpose":"Scrolling to load all products","timestamp":"..."}
+
+data: {"type":"HEARTBEAT","timestamp":"..."}
+
+data: {"type":"COMPLETE","run_id":"run_abc123","status":"COMPLETED","result":{"products":[...]},"timestamp":"..."}
+```
+
+### Event Type Reference
+
+| Event Type | Fields | Meaning |
+|-----------|--------|---------|
+| `STARTED` | `run_id`, `timestamp` | Automation began |
+| `STREAMING_URL` | `run_id`, `streaming_url`, `timestamp` | Live browser view available |
+| `PROGRESS` | `run_id`, `purpose`, `timestamp` | Agent took an action |
+| `HEARTBEAT` | `timestamp` | Connection keepalive (every ~30s) |
+| `COMPLETE` | `run_id`, `status`, `result`, `error`, `timestamp` | Final result |
+
+**COMPLETE status values**: `COMPLETED`, `FAILED`, `CANCELLED`
+
+### Result Format
+
+On success:
+```json
+{
+  "type": "COMPLETE",
+  "run_id": "run_abc123",
+  "status": "COMPLETED",
+  "result": {
+    "products": [
+      { "name": "Laptop Pro", "price": "$1,299", "inStock": true },
+      { "name": "Wireless Mouse", "price": "$29", "inStock": true }
+    ]
+  },
+  "timestamp": "2025-01-01T00:00:15Z"
+}
+```
+
+On failure:
+```json
+{
+  "type": "COMPLETE",
+  "run_id": "run_abc123",
+  "status": "FAILED",
+  "error": "Navigation timeout after 30 seconds",
+  "help_url": "https://docs.tinyfish.ai/error-codes#timeout",
+  "help_message": "The page took too long to load. Try using stealth mode.",
+  "timestamp": "..."
+}
+```
+
+---
+
+## 5. SDK Usage
+
+### Python SDK
+
+```python
+from tinyfish import TinyFish, EventType, RunStatus, BrowserProfile, ProxyConfig, ProxyCountryCode
+
+client = TinyFish()  # Reads TINYFISH_API_KEY from environment
+
+# Streaming
+with client.agent.stream(
+    url="https://scrapeme.live/shop",
+    goal="Extract the first 2 product names and prices. Return as JSON.",
+) as stream:
+    for event in stream:
+        if event.type == EventType.PROGRESS:
+            print(f"  → {event.purpose}")
+        elif event.type == EventType.COMPLETE:
+            if event.status == RunStatus.COMPLETED:
+                print("Result:", event.result_json)
+            else:
+                print("Failed:", event.error)
+
+# Synchronous (blocking)
+run = client.agent.run(
+    url="https://example.com",
+    goal="Extract pricing information"
+)
+print(run.result if run.status == RunStatus.COMPLETED else run.error)
+
+# Async / queue
+queued = client.agent.queue({
+    "url": "https://example.com",
+    "goal": "Extract product data"
+})
+# Poll later
+run = client.runs.get(queued.run_id)
+```
+
+### TypeScript SDK
+
+```typescript
+import { TinyFish, EventType, RunStatus, BrowserProfile, ProxyCountryCode } from "@tiny-fish/sdk";
+
+const client = new TinyFish();  // Reads TINYFISH_API_KEY
+
+// Stream with event handling
+const stream = await client.agent.stream({
+  url: "https://scrapeme.live/shop",
+  goal: "Extract all product names and prices",
+  browser_profile: BrowserProfile.LITE,
+});
+
+for await (const event of stream) {
+  if (event.type === EventType.PROGRESS) {
+    console.log(`→ ${event.purpose}`);
+  } else if (event.type === EventType.COMPLETE) {
+    console.log(event.status === RunStatus.COMPLETED ? event.result : event.error);
+  }
+}
+```
+
+### CLI
+
+```bash
+# Install
+npm install -g @tinyfish-ai/cli
+
+# Run with pretty output
+tinyfish agent run "Extract the first 2 product names and prices" \
+  --url https://scrapeme.live/shop --pretty
+
+# Output:
+# ▶ Run started
+# • Visit the page to extract product information
+# • Check for product information on the page
+# ✓ Completed
+# {"products": [{"name": "Bulbasaur", "price": "$63.00"}, ...]}
+```
+
+---
+
+## 6. Browser Profiles
+
+| Profile | Bot Detection Evasion | Speed | Use Case |
+|---------|----------------------|-------|---------|
+| `lite` | Basic | Fast | Normal sites without bot protection |
+| `stealth` | Advanced (fingerprint evasion, behavioral) | Slightly slower | Cloudflare, DataDome, PerimeterX-protected sites |
+
+```python
+# Start with lite, fall back to stealth if blocked
+result = await client.agent.run(url=url, goal=goal, browser_profile=BrowserProfile.LITE)
+
+if result.status == RunStatus.FAILED and "blocked" in (result.error or ""):
+    result = await client.agent.run(
+        url=url,
+        goal=goal,
+        browser_profile=BrowserProfile.STEALTH,
+        proxy_config={"enabled": True, "country_code": ProxyCountryCode.US}
+    )
+```
+
+---
+
+## 7. Batch Processing Pattern
+
+TinyFish supports up to 100 concurrent automations. For bulk operations:
+
+```python
+import asyncio
+from tinyfish import TinyFish, RunStatus
+
+client = TinyFish(maxRetries=3)
+
+async def process_batch(tasks: list[dict]) -> list[dict]:
+    """Submit all tasks at once, poll until complete"""
+    
+    # Submit all
+    queued = await asyncio.gather(*[
+        client.agent.queue(task) for task in tasks
+    ])
+    run_ids = [r.run_id for r in queued if not r.error]
+    
+    # Poll for completion
+    pending = set(run_ids)
+    results = {}
+    
+    while pending:
+        # Batch-fetch status
+        batch = await client.runs.get_many(list(pending)[:100])
+        
+        for run in batch:
+            if run.status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED):
+                results[run.run_id] = run
+                pending.discard(run.run_id)
+        
+        if pending:
+            await asyncio.sleep(2)
+    
+    return list(results.values())
+
+# Process 50 URLs in parallel
+tasks = [{"url": url, "goal": "Extract product data"} for url in urls]
+results = asyncio.run(process_batch(tasks))
+```
+
+---
+
+## 8. AI Agent Integration
+
+### Writing Goals for TinyFish as an AI Tool
+
+When an AI agent calls TinyFish, goal quality determines result quality. TinyFish's AI Integration Guide recommends:
+
+#### Specify Output Schema
+```
+Extract product data and return as JSON matching this structure:
+{
+  "product_name": "string",
+  "price": number or null,
+  "in_stock": boolean
+}
+```
+
+#### Include Termination Conditions
+```
+Stop when ANY of these is true:
+- You have extracted 20 items
+- No more "Load More" button exists
+- You have processed 5 pages
+- The page shows a login prompt
+```
+
+#### Handle Edge Cases
+```
+If price shows "Contact Us" or "Request Quote":
+  Set price to null
+  Set price_type to "contact_required"
+
+If a CAPTCHA appears:
+  Stop immediately
+  Return partial results with an error flag
+```
+
+#### Request Structured Errors
+```
+If extraction fails, return:
+{
+  "success": false,
+  "error_type": "timeout" | "blocked" | "not_found",
+  "error_message": "Description of what went wrong",
+  "partial_results": [any data captured before failure]
+}
+```
+
+### Integrating TinyFish as a Tool in Claude
+
+```python
+import anthropic
+import httpx
+import json
+
+def tinyfish_web_agent(url: str, goal: str, stealth: bool = False) -> str:
+    """Call TinyFish Web Agent and return result"""
+    headers = {"X-API-Key": os.getenv("TINYFISH_API_KEY"), "Content-Type": "application/json"}
+    body = {
+        "url": url,
+        "goal": goal,
+        "browser_profile": "stealth" if stealth else "lite",
+    }
+    
+    with httpx.stream("POST", "https://agent.tinyfish.ai/v1/automation/run-sse",
+                      headers=headers, json=body, timeout=120) as r:
+        for line in r.iter_lines():
+            if line.startswith("data: "):
+                event = json.loads(line[6:])
+                if event["type"] == "COMPLETE":
+                    if event["status"] == "COMPLETED":
+                        return json.dumps(event.get("result", {}))
+                    else:
+                        return json.dumps({"error": event.get("error")})
+    return json.dumps({"error": "Stream ended unexpectedly"})
+
+# Register as a Claude tool
+tools = [
+    {
+        "name": "web_agent",
+        "description": "Execute browser automation on any website. Navigates real browsers, handles JavaScript, can log in and interact with dynamic sites. Use for: extracting live data from any website, filling forms, multi-step web workflows, sites that require JavaScript. Returns structured JSON result.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Target website URL"},
+                "goal": {"type": "string", "description": "Natural language task description. Be specific about the data format to return."},
+                "stealth": {"type": "boolean", "description": "Use anti-detection browser for bot-protected sites"}
+            },
+            "required": ["url", "goal"]
+        }
+    }
+]
+
+# Agent loop with TinyFish as a tool
+client = anthropic.Anthropic()
+messages = [{"role": "user", "content": "Research the top 3 Python AI frameworks and their GitHub star counts"}]
+
+while True:
+    response = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=4096,
+        tools=tools,
+        messages=messages
+    )
+    messages.append({"role": "assistant", "content": response.content})
+    
+    if response.stop_reason != "tool_use":
+        break
+    
+    tool_results = []
+    for block in response.content:
+        if block.type == "tool_use" and block.name == "web_agent":
+            result = tinyfish_web_agent(block.input["url"], block.input["goal"])
+            tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": result})
+    
+    messages.append({"role": "user", "content": tool_results})
+```
+
+### MCP Integration
+
+TinyFish exposes a Claude-compatible MCP interface:
+
+```json
+{
+  "server": {
+    "name": "TinyFish Web Agent",
+    "version": "1.0.0",
+    "transport": "http"
+  },
+  "capabilities": {
+    "tools": {
+      "search_tiny_fish_web_agent": {
+        "name": "search_tiny_fish_web_agent",
+        "description": "Search the TinyFish documentation and knowledge base"
       }
     }
   }
 }
 ```
 
-Once configured, Claude can:
-- Navigate to any URL
-- Extract structured data using natural language
-- Click buttons, fill forms
-- Take screenshots of pages
-
-This is how TinyFish integrates with Claude Code, Cursor, and other MCP-compatible agents — effectively giving any LLM a fully managed browser as a tool.
+This allows Claude Code, Cursor, and other MCP-compatible clients to discover and use TinyFish capabilities automatically.
 
 ---
 
-## Integrations Ecosystem
+## 9. Comparison: TinyFish vs. Other Search/Web APIs
 
-TinyFish/AgentQL integrates with the major AI and automation platforms:
+| Dimension | TinyFish | Brave Search | Serper | Tavily | Playwright (DIY) |
+|-----------|----------|-------------|--------|--------|-----------------|
+| **Fresh live data** | ✅ | ❌ Indexed | ❌ Indexed | ❌ Indexed | ✅ |
+| **JavaScript execution** | ✅ Full | ❌ | ❌ | ❌ | ✅ |
+| **Authenticated sites** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Bot protection bypass** | ✅ Stealth mode | N/A | N/A | N/A | ❌ (DIY) |
+| **Natural language goals** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **No selector knowledge** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **SSE streaming** | ✅ | ❌ | ❌ | ❌ | DIY |
+| **Parallel scale** | ✅ 100s | ✅ | ✅ | ✅ | ❌ (expensive) |
+| **Proxy included** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Cost model** | Usage-based | Per search | Per search | Per search | Infra + ops |
+| **Best for** | Live web actions | Fast retrieval | SERP data | Research agents | Full control |
 
-### LangChain Integration
+### When to Use TinyFish
 
-```python
-from agentql.ext.langchain import AgentQLLoader
+✅ **Use TinyFish when**:
+- You need live data from a JavaScript-rendered site (SPA, infinite scroll, lazy loading)
+- You need to authenticate and access content behind a login
+- The site has bot protection (Cloudflare, DataDome)
+- You need multi-step workflows (navigate → click → fill form → extract)
+- You're running at scale and can't manage browser infrastructure
+- You want an agent to be able to "browse the web" naturally
 
-loader = AgentQLLoader(
-    url="https://example.com/products",
-    query="""
-    {
-        products[] {
-            name
-            price
-            availability
-        }
-    }
-    """
-)
-
-documents = loader.load()
-# Returns LangChain Document objects ready for RAG pipeline
-```
-
-### n8n Integration
-
-TinyFish offers a dedicated n8n node, enabling visual workflow automation:
-- Drag TinyFish node into n8n canvas
-- Set URL + goal (natural language)
-- Connect to downstream nodes for data processing
-- No code required for common scraping workflows
-
-### Dify Integration
-
-```json
-// TinyFish as a Dify tool
-{
-  "url": "{{input_url}}",
-  "goal": "Extract the main article content and author information",
-  "api_integration": "dify",
-  "feature_flags": {
-    "enable_agent_memory": true
-  }
-}
-```
-
-### Zapier Integration
-
-Available through AgentQL's Zapier connector for no-code workflows:
-- Trigger: new item in a list → run AgentQL extraction
-- Action: AgentQL result → Google Sheets, Slack, database
-
-### Direct REST API
-
-For custom integrations, the REST API works with any HTTP client:
-
-```python
-import requests
-
-def extract_web_data(url: str, query: str) -> dict:
-    response = requests.post(
-        "https://api.agentql.com/v1/query-data",
-        headers={"X-API-Key": AGENTQL_API_KEY},
-        json={"url": url, "query": query}
-    )
-    return response.json()["data"]
-```
+❌ **Use search APIs (Brave/Serper/Tavily) when**:
+- You need fast keyword search results (indexed web)
+- You're researching topics that don't need the absolute latest data
+- Latency is critical and 5-second browser automation is too slow
+- Cost-per-query matters more than freshness
 
 ---
 
-## Use Cases for Research Agents
+## 10. Use Cases for Coding Agents
 
-TinyFish/AgentQL is particularly well-suited for **agentic research workflows** where an agent needs to gather real-time information from the web:
+TinyFish is particularly powerful for coding agents that need to:
 
-### 1. Competitive Intelligence
+### 1. Research Competitor APIs and Documentation
 
 ```python
 goal = """
-Navigate to competitor pricing pages and extract:
-- All plan names and prices
-- Feature comparison for each plan
-- Any current promotions or discounts
+Visit the OpenAI API documentation page.
+Extract all API endpoints listed in the navigation sidebar.
+For each endpoint, extract the endpoint path and a one-line description.
+Return as a JSON array.
 """
+result = client.agent.run(url="https://platform.openai.com/docs/api-reference", goal=goal)
 ```
 
-Agent actions:
-1. Navigate to competitor's website
-2. Find the pricing page (autonomous navigation)
-3. Extract structured pricing data
-4. Handle authentication if behind a login
-5. Return structured JSON
-
-### 2. Research Data Collection
-
-For AI research assistants that need real-time web data:
-
-```python
-# In a LangChain research agent
-tools = [
-    AgentQLTool(
-        name="web_extract",
-        description="Extract structured data from any web page",
-    ),
-    # + other research tools
-]
-
-agent = initialize_agent(
-    tools=tools,
-    llm=ChatAnthropic(model="claude-opus-4-5"),
-    agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
-)
-
-result = agent.run(
-    "Research the top 5 AI coding assistants, extract their pricing and key features"
-)
-```
-
-### 3. Form Automation for Agents
-
-Coding agents sometimes need to interact with web UIs (GitHub, Jira, Linear):
+### 2. Check GitHub Issues / PR Status
 
 ```python
 goal = """
-Go to the GitHub repository at https://github.com/org/repo/issues
-Create a new issue with:
-- Title: "Fix: NullPointerException in auth handler"
-- Body: [detailed description]
-- Labels: bug, priority:high
+Go to the GitHub issues page for the repository.
+Find all open issues labeled 'bug' created in the last 7 days.
+For each issue, extract: title, issue number, creation date, and number of comments.
+Return as JSON array.
 """
+result = client.agent.run(url="https://github.com/org/repo/issues?q=is%3Aopen+label%3Abug", goal=goal)
 ```
 
-### 4. Behind-Login Extraction
-
-TinyFish handles authentication flows that traditional scrapers can't:
-- OAuth flows (Google, GitHub login)
-- Multi-step login with 2FA
-- Cookie-based sessions with persistence
-- CAPTCHA handling (via browser fingerprinting + proxy rotation)
-
-### 5. Real-Time Price/Stock Monitoring
+### 3. Monitor Dependency Security Advisories
 
 ```python
-# Polling product pages for changes
-for product_url in product_urls:
-    result = tinyfish.run(
-        url=product_url,
-        goal="Extract current price and availability status"
-    )
-    check_for_changes(result)
+goal = """
+Search for security advisories affecting Python packages on PyPI.
+Find advisories published in the last 30 days.
+Return: package name, advisory ID, severity, affected versions.
+"""
+result = client.agent.run(url="https://pypi.org/security", goal=goal)
+```
+
+### 4. Extract Code Examples from Docs
+
+```python
+goal = """
+Navigate to the Quick Start section of the documentation.
+Extract all code examples (they appear in gray code blocks).
+Return: language, description (paragraph before the code block), code content.
+Return as JSON array.
+"""
+result = client.agent.run(url="https://docs.someframework.io/quickstart", goal=goal)
+```
+
+### 5. CI/CD Status Monitoring
+
+```python
+goal = """
+Go to the Actions tab of this repository.
+Find the last 5 workflow runs for the 'CI' workflow.
+For each: extract run number, status (success/failure/running), triggered by (push/PR/manual), duration.
+"""
+result = client.agent.run(url="https://github.com/org/repo/actions", goal=goal)
 ```
 
 ---
 
-## Technical Architecture
-
-### Serverless Browser Fleet
-
-TinyFish runs a managed fleet of cloud browsers:
-- Each request spins up (or reuses) a browser instance
-- Browsers run in isolated sandboxes (one per task)
-- Automatic cleanup after task completion
-- Geographic distribution for proxy routing
-
-### Anti-Bot Infrastructure
-
-One of TinyFish's core value-adds is bypassing bot detection:
-
-**Browser fingerprinting:**
-- Realistic browser fingerprints (screen resolution, fonts, WebGL)
-- Consistent fingerprint within a session
-- Randomized across sessions to avoid pattern detection
-
-**Proxy rotation:**
-- Residential proxies (real IP addresses, not datacenter IPs)
-- Country-specific routing for geo-restricted content
-- Automatic rotation on detection
-
-**Stealth mode:**
-- Removes automation indicators from the browser (`navigator.webdriver = false`)
-- Mimics real user behavior patterns (mouse movements, scroll behavior)
-- Realistic timing between actions
-
-### Concurrent Execution
-
-A key differentiator vs self-hosted solutions:
-
-> "Run up to 1,000 simultaneous web operations across hundreds of sites, completing tasks in minutes that would otherwise take days manually or hours with traditional automation."
-
-This enables **agent swarm** patterns where a research agent spawns hundreds of parallel web extraction tasks:
+## 11. Error Handling and Retry Strategy
 
 ```python
+from tinyfish import TinyFish, RunStatus, BrowserProfile, RateLimitError
 import asyncio
-from tinyfish import TinyFishClient
 
-async def research_competitors(competitor_list: list[str]):
-    client = TinyFishClient(api_key=TINYFISH_API_KEY)
+client = TinyFish(maxRetries=3)  # SDK auto-retries 429/5xx with exponential backoff
+
+async def robust_extraction(url: str, goal: str) -> dict:
+    """Production-grade extraction with fallback strategy"""
     
-    tasks = [
-        client.run_async(url=url, goal="Extract pricing and features")
-        for url in competitor_list
-    ]
+    # Attempt 1: Fast lite mode
+    try:
+        result = await client.agent.arun(url=url, goal=goal, browser_profile=BrowserProfile.LITE)
+        if result.status == RunStatus.COMPLETED:
+            return {"success": True, "data": result.result}
+    except RateLimitError:
+        await asyncio.sleep(5)
     
-    results = await asyncio.gather(*tasks)  # All run in parallel
-    return results
-
-# Research 50 competitors simultaneously
-results = asyncio.run(research_competitors(competitor_urls))
-```
-
----
-
-## Pricing Model
-
-TinyFish uses **all-inclusive per-step pricing**:
-
-- One price covers: browsers, proxies, AI inference, infrastructure
-- No separate bills for each component
-- Starter plan: ~16,500 steps/month, 50 concurrent agents
-- Residential proxy bandwidth included at $0/GB
-- LLM inference costs included
-- 180-day run history with observability and screenshots
-
-This pricing model is specifically designed for agent teams that would otherwise have:
-- Browser cloud bill (BrowserStack, Bright Data, etc.)
-- Proxy provider bill
-- AI API bill
-- Infrastructure/DevOps costs
-
----
-
-## Comparison with Alternatives
-
-### TinyFish vs Playwright (Self-Hosted)
-
-| Aspect | TinyFish | Playwright (self-hosted) |
-|--------|---------|--------------------------|
-| Setup time | Minutes (API key) | Hours (install, config, infra) |
-| Selector robustness | High (AI-powered, self-healing) | Low (CSS/XPath breaks on redesigns) |
-| Anti-bot bypass | Built-in | Manual (complex, unreliable) |
-| Concurrency | 1,000+ out of box | Limited by your servers |
-| Proxy management | Included | Separate provider needed |
-| Cost model | Per task (predictable) | Infrastructure + time cost |
-| Customization | Limited | Full control |
-| Debugging | SSE stream + screenshots | Local dev tools |
-
-### TinyFish vs Puppeteer
-
-Puppeteer is even lower-level than Playwright — similar comparison applies, with TinyFish winning on operational simplicity but losing on control and customization.
-
-### TinyFish vs Stagehand (Browserbase)
-
-**Stagehand** (from Browserbase) is the closest competitor in the AI-native browser automation space:
-
-| Aspect | TinyFish / AgentQL | Stagehand (Browserbase) |
-|--------|-------------------|------------------------|
-| Query model | AgentQL query language + NL | Playwright-based, AI for `act()` |
-| Infrastructure | Fully managed, all-inclusive | Managed browsers, separate AI costs |
-| Open source | AgentQL open-source | Stagehand open-source |
-| Integration | MCP, n8n, Dify, LangChain | Playwright-compatible |
-| Focus | Data extraction + agentic web ops | Browser automation + LLM actions |
-
-### TinyFish vs Firecrawl
-
-**Firecrawl** focuses on web scraping and content extraction for RAG pipelines:
-
-| Aspect | TinyFish | Firecrawl |
-|--------|---------|-----------|
-| Use case | Interactive agent web ops | Static content extraction for RAG |
-| JavaScript rendering | Full browser execution | Headless rendering |
-| Login support | Yes (full auth flows) | Limited |
-| Interactive actions | Yes (click, type, navigate) | No |
-| Price extraction | Yes | No |
-| Scale | 1,000 concurrent | High, API-based |
-
-**When to use TinyFish vs Firecrawl:**
-- Firecrawl: Need to scrape article text, docs, blog posts for RAG indexing
-- TinyFish: Need to interact with dynamic sites, log in, click buttons, fill forms
-
-### TinyFish vs Selenium Grid
-
-Legacy Selenium Grid setups require:
-- Self-hosted infrastructure
-- Browser binary management
-- Network configuration
-- No built-in AI/NL capabilities
-- Manual proxy setup
-
-TinyFish replaces all of this with a single API call. The tradeoff is vendor lock-in and less flexibility.
-
----
-
-## For Research Agents: Recommended Patterns
-
-### Pattern 1: Parallel Research with Summarization
-
-```python
-async def research_topic(topic: str, sources: list[str]) -> str:
-    """
-    Parallel web research agent pattern using TinyFish.
-    Gather from multiple sources simultaneously, then synthesize.
-    """
-    # Parallel extraction from all sources
-    tasks = [
-        tinyfish.run_async(
-            url=url,
-            goal=f"Extract key information about: {topic}"
-        )
-        for url in sources
-    ]
-    raw_results = await asyncio.gather(*tasks)
+    # Attempt 2: Stealth mode
+    result = await client.agent.arun(
+        url=url,
+        goal=f"{goal}\n\nIf you encounter a CAPTCHA or are blocked, return success=false with error_type=blocked",
+        browser_profile=BrowserProfile.STEALTH,
+        proxy_config={"enabled": True, "country_code": "US"}
+    )
     
-    # Synthesize with LLM
-    combined = "\n\n".join([r["resultJson"]["content"] for r in raw_results])
-    synthesis = llm.complete(f"Synthesize this research about {topic}:\n{combined}")
+    if result.status == RunStatus.COMPLETED:
+        return {"success": True, "data": result.result}
     
-    return synthesis
-```
-
-### Pattern 2: Agent Memory + Web Research
-
-The `enable_agent_memory` feature flag enables TinyFish to remember context within a multi-step web session:
-
-```python
-# Multi-step research with memory
-result = tinyfish.run(
-    url="https://techcrunch.com",
-    goal="""
-    1. Find the 3 most recent articles about AI coding agents
-    2. For each article, navigate to it and extract the main findings
-    3. Return a structured summary of all 3 articles
-    """,
-    feature_flags={"enable_agent_memory": True}
-)
-# Agent remembers where it's been across the multi-page session
-```
-
-### Pattern 3: MCP Tool for Conversational Research
-
-With the AgentQL MCP server configured, any MCP-compatible AI assistant can do live web research:
-
-```
-User: What's the current pricing for GitHub Copilot Enterprise?
-Claude: [uses agentql MCP tool]
-  → Navigates to github.com/features/copilot/plans
-  → Extracts pricing table
-  → Returns structured pricing data
-Claude: "GitHub Copilot Enterprise is currently priced at $39/user/month..."
-```
-
----
-
-## Limitations and Considerations
-
-### What TinyFish Cannot Do
-
-1. **Real-time streams**: Can't subscribe to live stock tickers, websocket feeds
-2. **Native app automation**: Web-only; no iOS/Android apps
-3. **Offline/local content**: Must be accessible via URL
-4. **Complete anti-detection**: Some sophisticated sites still detect automation
-5. **Custom browser extensions**: Managed browsers don't support arbitrary extensions
-
-### Reliability Considerations
-
-- Sites can change structure → goal-based API more resilient than query-based
-- Rate limiting from target sites still applies
-- Anti-bot measures evolve → may periodically fail on some sites
-- SSE stream can disconnect → need reconnection logic for long tasks
-
-### Privacy and Data Handling
-
-- Browsing activity passes through TinyFish infrastructure
-- Consider data sensitivity before routing through any third party
-- Credentials passed as part of goals/context are handled by TinyFish servers
-- Review their data retention and privacy policies for enterprise use
-
----
-
-## Getting Started
-
-### Quick Start (5 minutes)
-
-```bash
-# Install AgentQL Python SDK
-pip install agentql
-
-# Set API key
-export AGENTQL_API_KEY=your-key-here
-
-# Install Playwright browsers
-playwright install chromium
-```
-
-```python
-import agentql
-from playwright.sync_api import sync_playwright
-
-with sync_playwright() as p:
-    browser = p.chromium.launch()
-    page = agentql.wrap(browser.new_page())
-    page.goto("https://hacker news.ycombinator.com")
-    
-    # Extract top stories
-    data = page.query_data("""
-    {
-        stories[] {
-            title
-            url
-            points
-            comments_count
-        }
+    return {
+        "success": False,
+        "error": result.error,
+        "url": url
     }
-    """)
-    
-    print(data)
 ```
 
-### TinyFish Web Agent (Managed)
+---
 
-```python
-import requests
+## 12. Pricing Model
 
-response = requests.post(
-    "https://agent.tinyfish.ai/v1/automation/run-sse",
-    headers={"X-API-Key": TINYFISH_API_KEY},
-    json={
-        "url": "https://news.ycombinator.com",
-        "goal": "Get the top 10 stories with titles, URLs, and point counts",
-        "proxy_config": {"enabled": False}
-    },
-    stream=True
-)
+TinyFish pricing (as of 2025):
+- **Included in every plan**: All LLM costs, remote browser time, residential proxy bandwidth, anti-bot infrastructure
+- **Usage-based**: Operations/steps consumed
+- **Free tier**: 500 free steps, no credit card required
+- **Volume discounts**: Cost per operation decreases as operations become "codified" (presumably as patterns are optimized)
 
-for line in response.iter_lines():
-    if line.startswith(b"data: "):
-        event = json.loads(line[6:])
-        if event["type"] == "COMPLETE":
-            print(event["resultJson"])
-            break
-        elif event["type"] == "PROGRESS":
-            print(f"Agent: {event['purpose']}")
-```
+This is notable — unlike many competitors where you pay separately for the LLM, the browser, and the proxy, TinyFish bundles everything.
 
 ---
 
 ## Sources
 
-- TinyFish main site: https://www.tinyfish.ai/
-- TinyFish pricing: https://www.tinyfish.ai/pricing
-- TinyFish docs (SSE API): https://docs.tinyfish.ai/api-reference/automation/run-browser-automation-with-sse-streaming
-- TinyFish n8n integration: https://docs.tinyfish.ai/integrations/n8n
-- AgentQL GitHub: https://github.com/tinyfish-io/agentql
-- AgentQL integrations: https://github.com/tinyfish-io/agentql-integrations
-- AgentQL MCP server: https://github.com/tinyfish-io/agentql-mcp
-- TinyFish cookbook: https://github.com/tinyfish-io/tinyfish-cookbook
-- AgentQL MCP docs: https://docs.agentql.com/integrations/mcp
-- MOGE product overview: https://moge.ai/product/tinyfish
-- Futurepedia pricing: https://www.futurepedia.io/tool/tinyfish
-- Playbooks.com skill: https://playbooks.com/skills/tinyfish-io/skills/tinyfish-web-agent
-- Firecrawl browser agents comparison: https://www.firecrawl.dev/blog/best-browser-agents
+- TinyFish Website — https://www.tinyfish.ai/
+- TinyFish Docs — https://docs.tinyfish.ai
+- TinyFish Quick Start — https://docs.tinyfish.ai/quick-start
+- TinyFish SSE API Reference — https://docs.tinyfish.ai/api-reference/automation/run-browser-automation-with-sse-streaming
+- TinyFish AI Integration Guide — https://docs.tinyfish.ai/ai-integration.md
+- TinyFish Common Patterns — https://docs.tinyfish.ai/common-patterns.md
+- TinyFish Web Scraping Examples — https://docs.tinyfish.ai/examples/scraping
+- TinyFish llms.txt (full API index) — https://docs.tinyfish.ai/llms.txt
