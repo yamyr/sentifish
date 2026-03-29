@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRuns } from "@/hooks/useApi";
+import { MetricTooltip } from "@/components/dashboard/MetricTooltip";
+import QueryResultsPanel from "@/components/dashboard/QueryResultsPanel";
 import {
   Search,
   Clock,
@@ -46,6 +48,7 @@ export default function RecentRuns() {
   const { data: runs, isLoading } = useRuns();
   const [filter, setFilter] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedQuery, setSelectedQuery] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   const sortedRuns = useMemo(() => {
@@ -115,6 +118,9 @@ export default function RecentRuns() {
             <div className="space-y-2">
               {displayed.map((run) => {
                 const isExpanded = expandedId === run.id;
+                const uniqueQueries = isExpanded
+                  ? [...new Set((run.scores ?? []).map((s) => s.query))]
+                  : [];
                 return (
                   <motion.div
                     key={run.id}
@@ -123,7 +129,10 @@ export default function RecentRuns() {
                   >
                     <button
                       type="button"
-                      onClick={() => setExpandedId(isExpanded ? null : run.id)}
+                      onClick={() => {
+                        setExpandedId(isExpanded ? null : run.id);
+                        setSelectedQuery(null);
+                      }}
                       className="flex w-full items-center gap-3 p-3 text-left"
                     >
                       {/* Status badge */}
@@ -189,14 +198,30 @@ export default function RecentRuns() {
                               <tr className="text-muted-foreground">
                                 <th className="text-left py-1 pr-3 font-medium">Query</th>
                                 <th className="text-left py-1 pr-3 font-medium">Provider</th>
-                                <th className="text-right py-1 pr-3 font-medium">P@K</th>
-                                <th className="text-right py-1 pr-3 font-medium">R@K</th>
-                                <th className="text-right py-1 pr-3 font-medium">NDCG</th>
-                                <th className="text-right py-1 pr-3 font-medium">MAP</th>
-                                <th className="text-right py-1 pr-3 font-medium">MRR</th>
-                                <th className="text-right py-1 pr-3 font-medium">Depth</th>
-                                <th className="text-right py-1 pr-3 font-medium">Judge</th>
-                                <th className="text-right py-1 font-medium">Latency</th>
+                                <th className="text-right py-1 pr-3 font-medium">
+                                  <MetricTooltip metric="precision_at_k" label="P@K" />
+                                </th>
+                                <th className="text-right py-1 pr-3 font-medium">
+                                  <MetricTooltip metric="recall_at_k" label="R@K" />
+                                </th>
+                                <th className="text-right py-1 pr-3 font-medium">
+                                  <MetricTooltip metric="ndcg_at_k" label="NDCG" />
+                                </th>
+                                <th className="text-right py-1 pr-3 font-medium">
+                                  <MetricTooltip metric="map_at_k" label="MAP" />
+                                </th>
+                                <th className="text-right py-1 pr-3 font-medium">
+                                  <MetricTooltip metric="mrr" label="MRR" />
+                                </th>
+                                <th className="text-right py-1 pr-3 font-medium">
+                                  <MetricTooltip metric="content_depth" label="Depth" />
+                                </th>
+                                <th className="text-right py-1 pr-3 font-medium">
+                                  <MetricTooltip metric="llm_judge_score" label="Judge" />
+                                </th>
+                                <th className="text-right py-1 font-medium">
+                                  <MetricTooltip metric="latency_ms" label="Latency" />
+                                </th>
                               </tr>
                             </thead>
                             <tbody className="font-mono-brand">
@@ -229,6 +254,41 @@ export default function RecentRuns() {
                             </p>
                           )}
                         </div>
+
+                        {/* Per-query drill-down */}
+                        {uniqueQueries.length > 0 && (
+                          <div className="mt-4 border-t border-border/50 pt-3">
+                            <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Click a query to see results per provider
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {uniqueQueries.map((q) => (
+                                <button
+                                  key={q}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedQuery(selectedQuery === q ? null : q);
+                                  }}
+                                  className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                                    selectedQuery === q
+                                      ? "border-brand-cyan bg-brand-cyan/10 text-brand-cyan"
+                                      : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                  }`}
+                                >
+                                  {q.length > 50 ? `${q.slice(0, 50)}…` : q}
+                                </button>
+                              ))}
+                            </div>
+                            {selectedQuery && (
+                              <QueryResultsPanel
+                                query={selectedQuery}
+                                scores={run.scores}
+                              />
+                            )}
+                          </div>
+                        )}
+
                         {run.error && (
                           <p className="mt-2 text-xs text-danger">
                             Error: {run.error}

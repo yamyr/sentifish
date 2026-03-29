@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useRuns } from "@/hooks/useApi";
-import { BarChart3 } from "lucide-react";
+import { useRuns, useProvidersInfo } from "@/hooks/useApi";
+import { MetricTooltip } from "@/components/dashboard/MetricTooltip";
+import { BarChart3, Info } from "lucide-react";
 
 const PROVIDER_COLORS: Record<string, string> = {
   brave: "bg-brand-indigo",
@@ -29,26 +30,40 @@ interface ProviderMetrics {
   contentDepth: number;
   judgeScore: number;
   latency: number;
+  precision: number;
+  mrr: number;
 }
 
 const MOCK_DATA: Record<string, ProviderMetrics> = {
-  brave: { ndcg: 0.84, map: 0.79, recall: 0.76, contentDepth: 0.35, judgeScore: 0.82, latency: 320 },
-  serper: { ndcg: 0.80, map: 0.76, recall: 0.81, contentDepth: 0.30, judgeScore: 0.78, latency: 180 },
-  tavily: { ndcg: 0.89, map: 0.84, recall: 0.73, contentDepth: 0.55, judgeScore: 0.88, latency: 440 },
-  exa: { ndcg: 0.87, map: 0.82, recall: 0.80, contentDepth: 0.60, judgeScore: 0.85, latency: 350 },
-  tinyfish: { ndcg: 0.72, map: 0.65, recall: 0.60, contentDepth: 0.92, judgeScore: 0.75, latency: 25000 },
+  brave: { ndcg: 0.84, map: 0.79, recall: 0.76, contentDepth: 0.35, judgeScore: 0.82, latency: 320, precision: 0.80, mrr: 0.78 },
+  serper: { ndcg: 0.80, map: 0.76, recall: 0.81, contentDepth: 0.30, judgeScore: 0.78, latency: 180, precision: 0.77, mrr: 0.75 },
+  tavily: { ndcg: 0.89, map: 0.84, recall: 0.73, contentDepth: 0.55, judgeScore: 0.88, latency: 440, precision: 0.82, mrr: 0.85 },
+  exa: { ndcg: 0.87, map: 0.82, recall: 0.80, contentDepth: 0.60, judgeScore: 0.85, latency: 350, precision: 0.81, mrr: 0.83 },
+  tinyfish: { ndcg: 0.72, map: 0.65, recall: 0.60, contentDepth: 0.92, judgeScore: 0.75, latency: 25000, precision: 0.68, mrr: 0.70 },
 };
 
-const BAR_METRICS: { key: keyof ProviderMetrics; label: string }[] = [
-  { key: "ndcg", label: "Ranking Quality — NDCG@K" },
-  { key: "map", label: "Consistent Precision — MAP@K" },
-  { key: "recall", label: "Coverage Breadth — Recall@K" },
-  { key: "contentDepth", label: "Content Depth" },
-  { key: "judgeScore", label: "LLM Judge — Semantic Relevance" },
+const BAR_METRICS: { key: keyof ProviderMetrics; label: string; metricKey: string }[] = [
+  { key: "ndcg", label: "Ranking Quality — NDCG@K", metricKey: "ndcg_at_k" },
+  { key: "map", label: "Consistent Precision — MAP@K", metricKey: "map_at_k" },
+  { key: "recall", label: "Coverage Breadth — Recall@K", metricKey: "recall_at_k" },
+  { key: "contentDepth", label: "Content Depth", metricKey: "content_depth" },
+  { key: "judgeScore", label: "LLM Judge — Semantic Relevance", metricKey: "llm_judge_score" },
 ];
+
+function compositeScore(p: ProviderMetrics): number {
+  return Math.round(
+    (p.ndcg * 0.35 + p.precision * 0.25 + p.recall * 0.25 + p.mrr * 0.15) * 100
+  );
+}
+
+function compositeColor(score: number): string {
+  const hue = Math.round((score / 100) * 120);
+  return `hsl(${hue}, 80%, 45%)`;
+}
 
 export default function ProviderComparison() {
   const { data: runs } = useRuns();
+  const { data: providersInfo } = useProvidersInfo();
 
   const { metrics, isLive } = useMemo(() => {
     const completedRuns = (runs ?? [])
@@ -71,11 +86,12 @@ export default function ProviderComparison() {
           contentDepth: 0,
           judgeScore: 0,
           latency: 0,
+          precision: 0,
+          mrr: 0,
         };
       }
     }
 
-    // Aggregate mean per provider
     const counts: Record<string, number> = {};
     for (const score of latestRun.scores ?? []) {
       const p = score.provider;
@@ -86,6 +102,8 @@ export default function ProviderComparison() {
       byProvider[p].contentDepth += score.content_depth ?? 0;
       byProvider[p].judgeScore += score.llm_judge_score ?? 0;
       byProvider[p].latency += score.latency_ms;
+      byProvider[p].precision += score.precision_at_k;
+      byProvider[p].mrr += score.mrr;
     }
 
     for (const p of Object.keys(byProvider)) {
@@ -96,12 +114,15 @@ export default function ProviderComparison() {
       byProvider[p].contentDepth /= n;
       byProvider[p].judgeScore /= n;
       byProvider[p].latency /= n;
+      byProvider[p].precision /= n;
+      byProvider[p].mrr /= n;
     }
 
     return { metrics: byProvider, isLive: true };
   }, [runs]);
 
   const providers = Object.keys(metrics);
+  const llmJudgeAvailable = providersInfo?.llm_judge_available ?? true;
 
   return (
     <motion.div
@@ -126,70 +147,88 @@ export default function ProviderComparison() {
               </span>
             )}
           </div>
+          {!llmJudgeAvailable && (
+            <div className="mt-3 flex items-center gap-2 rounded-md border border-brand-cyan/20 bg-brand-cyan/5 px-3 py-2 text-xs text-brand-cyan">
+              <Info className="h-3.5 w-3.5 shrink-0" />
+              LLM Judge scores unavailable — add OPENAI_API_KEY to enable semantic evaluation
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="overflow-x-auto">
-            <div className="min-w-[400px]">
-              {/* Provider legend */}
-              <div className="flex flex-wrap gap-4">
-                {providers.map((p) => (
-                  <div key={p} className="flex items-center gap-2">
-                    <div
-                      className={`h-3.5 w-3.5 rounded-full ring-2 ring-offset-2 ring-offset-card ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"} ${PROVIDER_COLORS[p] ? PROVIDER_COLORS[p].replace("bg-", "ring-") : "ring-muted-foreground"}`}
-                    />
-                    <span className="text-sm font-medium capitalize">{p}</span>
-                  </div>
-                ))}
-              </div>
+          {/* Provider legend with composite scores */}
+          <div className="flex flex-wrap gap-4">
+            {providers.map((p) => {
+              const score = compositeScore(metrics[p]);
+              return (
+                <div key={p} className="flex items-center gap-2">
+                  <div
+                    className={`h-3.5 w-3.5 rounded-full ring-2 ring-offset-2 ring-offset-card ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"} ${PROVIDER_COLORS[p] ? PROVIDER_COLORS[p].replace("bg-", "ring-") : "ring-muted-foreground"}`}
+                  />
+                  <span className="text-sm font-medium capitalize">{p}</span>
+                  <span
+                    className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                    style={{ backgroundColor: compositeColor(score) }}
+                    title="Composite Quality Score (0–100)"
+                  >
+                    {score}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
 
-              {/* Metric bars */}
-              <div className="space-y-5 mt-6">
-                {BAR_METRICS.map(({ key, label }) => (
-                  <div key={key}>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {label}
-                    </p>
-                    <div className="space-y-1.5">
-                      {providers.map((p) => {
-                        const val = metrics[p][key];
-                        const pct = val * 100;
-                        return (
-                          <div key={p} className="flex items-center gap-3">
-                            <span className="w-16 text-right text-sm font-medium font-sans-brand capitalize text-muted-foreground">
-                              {p}
-                            </span>
-                            <div className="relative flex-1 h-6 rounded-full bg-secondary/70 overflow-hidden">
-                              <motion.div
-                                className={`h-full rounded-full ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"}`}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${pct}%` }}
-                                transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
-                              >
-                                {pct > 30 && (
-                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 font-mono-brand text-[10px] font-bold text-white/90">
-                                    {val.toFixed(2)}
-                                  </span>
-                                )}
-                              </motion.div>
-                            </div>
-                            <span className="w-12 text-right font-mono-brand text-xs font-semibold">
-                              {val.toFixed(2)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+          {/* Composite score explanation */}
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <MetricTooltip metric="composite_score" label="Quality Score" />
+            <span>shown next to each provider</span>
+          </div>
+
+          {/* Metric bars */}
+          <div className="space-y-5">
+            {BAR_METRICS.map(({ key, label, metricKey }) => (
+              <div key={key}>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <MetricTooltip metric={metricKey} label={label} />
+                </p>
+                <div className="space-y-1.5">
+                  {providers.map((p) => {
+                    const val = metrics[p][key];
+                    const pct = val * 100;
+                    return (
+                      <div key={p} className="flex items-center gap-3">
+                        <span className="w-16 text-right text-sm font-medium font-sans-brand capitalize text-muted-foreground">
+                          {p}
+                        </span>
+                        <div className="relative flex-1 h-6 rounded-full bg-secondary/70 overflow-hidden">
+                          <motion.div
+                            className={`h-full rounded-full ${PROVIDER_COLORS[p] ?? "bg-muted-foreground"}`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
+                          >
+                            {pct > 30 && (
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 font-mono-brand text-[10px] font-bold text-white/90">
+                                {val.toFixed(2)}
+                              </span>
+                            )}
+                          </motion.div>
+                        </div>
+                        <span className="w-12 text-right font-mono-brand text-xs font-semibold">
+                          {val.toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ))}
           </div>
           <p className="text-xs text-muted-foreground text-center sm:hidden">&larr; Scroll to compare &rarr;</p>
 
           {/* Latency grid */}
           <div>
             <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Response Speed — Latency
+              <MetricTooltip metric="latency_ms" label="Response Speed — Latency" />
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {providers.map((p) => {
