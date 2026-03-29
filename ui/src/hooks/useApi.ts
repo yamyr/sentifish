@@ -15,6 +15,9 @@ export function useAllProviders() {
   return useQuery({
     queryKey: ["providers-all"],
     queryFn: sentifishApi.getAllProviders,
+    staleTime: 60_000,
+  });
+}
 
 export function useProvidersInfo() {
   return useQuery({
