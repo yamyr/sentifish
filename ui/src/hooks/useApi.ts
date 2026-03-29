@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sentifishApi, type EvalRunRequest, type MultiEvalRunRequest } from "@/lib/api/sentifish";
 
+const API_BASE = import.meta.env.VITE_SENTIFISH_API_URL || "";
+
 export function useProviders() {
   return useQuery({
     queryKey: ["providers"],
@@ -13,6 +15,15 @@ export function useAllProviders() {
   return useQuery({
     queryKey: ["providers-all"],
     queryFn: sentifishApi.getAllProviders,
+
+export function useProvidersInfo() {
+  return useQuery({
+    queryKey: ["providers-info"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/providers`);
+      const data = await res.json();
+      return data as { providers: string[]; llm_judge_available: boolean };
+    },
     staleTime: 60_000,
   });
 }

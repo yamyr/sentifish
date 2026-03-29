@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { useRuns } from "@/hooks/useApi";
+import { MetricTooltip } from "@/components/dashboard/MetricTooltip";
 import { BarChart3, Zap, Target, Sparkles } from "lucide-react";
 
 const container = {
@@ -103,6 +104,7 @@ export default function StatCards() {
       sub: null,
       icon: BarChart3,
       color: "text-brand-indigo",
+      metricKey: null,
     },
     {
       label: "Best NDCG@K",
@@ -110,6 +112,7 @@ export default function StatCards() {
       sub: stats.bestNdcgProvider !== "\u2014" ? stats.bestNdcgProvider : null,
       icon: Target,
       color: "text-success",
+      metricKey: "ndcg_at_k",
     },
     {
       label: "Best MAP@K",
@@ -117,6 +120,7 @@ export default function StatCards() {
       sub: stats.bestMapProvider !== "\u2014" ? stats.bestMapProvider : null,
       icon: Zap,
       color: "text-warning",
+      metricKey: "map_at_k",
     },
     {
       label: "Best Judge Score",
@@ -124,6 +128,7 @@ export default function StatCards() {
       sub: stats.bestJudgeProvider !== "\u2014" ? stats.bestJudgeProvider : null,
       icon: Sparkles,
       color: "text-brand-cyan",
+      metricKey: "llm_judge_score",
     },
   ];
 
@@ -145,7 +150,11 @@ export default function StatCards() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    {card.label}
+                    {card.metricKey ? (
+                      <MetricTooltip metric={card.metricKey} label={card.label} />
+                    ) : (
+                      card.label
+                    )}
                   </p>
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-lg ${palette.bg} ring-1 ${palette.ring}`}
