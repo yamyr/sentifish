@@ -221,7 +221,7 @@ export default function ProviderComparison() {
                   })}
                 </div>
               </div>
-            </div>
+            ))}
           </div>
           <p className="text-xs text-muted-foreground text-center sm:hidden">&larr; Scroll to compare &rarr;</p>
 
