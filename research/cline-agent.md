@@ -1,814 +1,603 @@
-# Cline VSCode Extension (formerly Claude Dev) — Comprehensive Overview
+# Cline (formerly Claude Dev): VSCode Autonomous Coding Agent
 
-> Research compiled: March 2026  
-> Sources: github.com/cline/cline, docs.cline.bot, deepwiki.com/cline/cline, VS Code Marketplace
+> Deep-dive research on Cline's architecture, tool use, Plan/Act modes, MCP integration, computer use, and comparison with Copilot.
+> Last updated: March 2026
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [History: From Claude Dev to Cline](#history-from-claude-dev-to-cline)
-3. [Architecture](#architecture)
-4. [Core Extension Components](#core-extension-components)
-5. [Tool Definitions](#tool-definitions)
-6. [Approval Flow](#approval-flow)
-7. [MCP Integration](#mcp-integration)
-8. [Browser Automation](#browser-automation)
+1. [Overview & History](#overview--history)
+2. [Architecture](#architecture)
+3. [Tool Use System](#tool-use-system)
+4. [Plan & Act Modes](#plan--act-modes)
+5. [File Operations](#file-operations)
+6. [Terminal Integration](#terminal-integration)
+7. [Browser & Computer Use](#browser--computer-use)
+8. [MCP Integration](#mcp-integration)
 9. [Context Management](#context-management)
-10. [Workspace Snapshots](#workspace-snapshots)
-11. [Model Support](#model-support)
-12. [Plan & Act Pipeline](#plan--act-pipeline)
-13. [@-Mention Context System](#-mention-context-system)
-14. [Terminal Integration](#terminal-integration)
-15. [Configuration & Customization](#configuration--customization)
-16. [Enterprise Features](#enterprise-features)
-17. [Comparison with Other Harnesses](#comparison-with-other-harnesses)
-18. [Sources](#sources)
+10. [Model Support](#model-support)
+11. [Human-in-the-Loop Safety](#human-in-the-loop-safety)
+12. [Cline vs GitHub Copilot](#cline-vs-github-copilot)
+13. [Cline CLI](#cline-cli)
+14. [Community & Marketplace](#community--marketplace)
+15. [Strengths & Weaknesses](#strengths--weaknesses)
+16. [Sources](#sources)
 
 ---
 
-## Overview
+## Overview & History
 
-**Cline** is an autonomous coding agent extension for VS Code. Originally released as "Claude Dev" by Saoud Rizwan, it was renamed to Cline (a portmanteau of **C**LI + **li**ne, or **Cl**aude Dev + **li**ne) and is now developed by Cline Bot Inc. as an open-source Apache 2.0 project.
+**Cline** (formerly known as **Claude Dev**) is an open-source autonomous coding agent built as a VS Code extension. It was originally built around Anthropic's Claude models (hence the name "Claude Dev"), then rebranded to "Cline" as it expanded to support all major LLM providers.
 
-The core design philosophy:
-> "Autonomous coding agent right in your IDE, capable of creating/editing files, executing commands, using the browser, and more with **your permission every step of the way**."
+### Key stats (2025)
 
-Cline is unique in that it maintains **human-in-the-loop approval** for every significant action while still being capable of complex, multi-step autonomous tasks.
+- **5M+ downloads** on the VS Code Marketplace (one of the fastest-growing dev tools)
+- **Open source** under Apache 2.0 license
+- **GitHub**: https://github.com/cline/cline
+- **Supported providers**: OpenRouter, Anthropic, OpenAI, Google Gemini, AWS Bedrock, Azure, GCP Vertex, Cerebras, Groq, LM Studio (local), Ollama (local)
+- **Initial release**: July 2024
+- **Status**: Active (as of 2025–2026)
 
-### Key Facts
+### What makes Cline different
 
-- **License**: Apache 2.0
-- **Language**: TypeScript
-- **GitHub**: [cline/cline](https://github.com/cline/cline)
-- **VS Code Marketplace**: `saoudrizwan.claude-dev`
-- **Stars**: ~30K+ GitHub stars
-- **Company**: Cline Bot Inc.
-- **Enterprise**: SSO, audit trails, private networking, self-hosted deployments
+Unlike GitHub Copilot (which is primarily autocomplete + chat), Cline is designed as a **fully autonomous agent** that:
+- Understands your task end-to-end
+- Explores your codebase systematically using AST analysis and regex search
+- Edits files, runs terminal commands, and browses the web
+- Shows you every action it takes **before** executing it (human-in-the-loop)
+- Can extend itself via MCP to add new capabilities on the fly
 
----
-
-## History: From Claude Dev to Cline
-
-### Timeline
-
-- **2024 (early)**: Saoud Rizwan releases "Claude Dev" as a personal VS Code extension
-- **2024 (mid)**: Extension gains significant traction; renamed to Cline
-- **2024 (late)**: Cline Bot Inc. founded; enterprise tier introduced
-- **2025**: Computer use (Anthropic) integration; MCP tool creation
-- **2026**: Continued development with 30K+ GitHub stars
-
-### Why "Cline"?
-
-The name "Cline" is a portmanteau reflecting:
-- **C**LI — command-line interface roots
-- **li**ne — code line / line of code
-- Originally inspired by Claude Dev → **C**laude Dev + **line** → Cline
-
-### Architecture Evolution
-
-Initial Claude Dev was tightly coupled to Claude Sonnet's specific API. Cline evolved to:
-- Support multiple LLM providers
-- Introduce a general tool use framework
-- Add MCP for extensibility
-- Build enterprise features
+> "Cline can handle complex software development tasks step-by-step. With tools that let him create & edit files, explore large projects, use the browser, and execute terminal commands (after you grant permission), he can assist you in ways that go beyond code completion or tech support."
 
 ---
 
 ## Architecture
 
-### High-Level Architecture
+Cline is a VS Code extension written in TypeScript. Its core architecture:
 
 ```
-VS Code Extension Host
-├── Extension Entry Point (extension.ts)
-│   └── Creates ClineProvider (Webview)
-│
-├── Controller (Central Orchestrator)
-│   ├── StateManager (Persistence)
-│   ├── AuthService (Identity)
-│   ├── McpHub (MCP server management)
-│   └── Task (active task instance)
-│
-└── Task (Agentic Loop)
-    ├── LLM API calls
-    ├── Tool execution
-    ├── Permission prompts
-    └── Conversation history
-```
-
-### Component Overview
-
-**ClineProvider** — The VS Code WebviewProvider:
-- Creates and manages the sidebar/panel webview
-- React-based UI communicates with extension via message passing
-- Handles UI state, themes, streaming output display
-
-**Controller** — The central nervous system:
-- Owns `StateManager` for persisting settings and task history
-- Owns `AuthService` for API key management
-- Owns `McpHub` for MCP server registry
-- Manages the active `Task` instance
-
-**Task** — One agentic session:
-- Maintains conversation history
-- Dispatches tool calls with permission checks
-- Manages file snapshots for rollback
-- Tracks all file changes across the session
-
-### Tool Integration Architecture
-
-```
-ClineDefaultTool implementations (built-in):
-├── ReadFileTool
-├── WriteFileTool
-├── EditFileTool
-├── ExecuteCommandTool
-├── BrowserActionTool
-└── ... (20+ tools)
-
-McpTool integration (external):
-├── McpHub manages server connections
-├── Tool discovery via MCP protocol
-└── Dynamic tool registration in agent context
-```
-
----
-
-## Core Extension Components
-
-### ClineProvider (Webview)
-
-The sidebar panel is a React application communicating with the extension host via VS Code's webview message API:
-
-```typescript
-// Extension to webview
-panel.webview.postMessage({ type: 'taskComplete', result: ... })
-
-// Webview to extension
-vscode.postMessage({ type: 'userInput', text: '...' })
-```
-
-This separation allows rich UI (syntax-highlighted diffs, approval buttons, cost tracking) while keeping business logic in the extension host.
-
-### StateManager
-
-Persists across VS Code sessions:
-- Task history (full conversation per task)
-- User settings (API keys, model selection, behavior flags)
-- MCP server configurations
-- Auto-approval rules
-
-### McpHub
-
-Manages the registry of MCP servers:
-- Tracks connected servers and their tool manifests
-- Handles server lifecycle (start, stop, restart)
-- Provides tool discovery for the agent
-- Supports `stdio` and `SSE` transport types
-
----
-
-## Tool Definitions
-
-Cline provides a rich set of built-in tools. Each tool is defined with a JSON schema that the LLM uses to understand when and how to call it:
-
-### File Operation Tools
-
-**read_file**
-```json
-{
-  "name": "read_file",
-  "description": "Read the contents of a file at the specified path. Returns file content or error if not found.",
-  "parameters": {
-    "path": "string — relative or absolute path to file"
-  }
-}
-```
-
-**write_to_file**
-```json
-{
-  "name": "write_to_file",
-  "description": "Write content to a file, creating or overwriting. Shows diff for user approval.",
-  "parameters": {
-    "path": "string — file path",
-    "content": "string — complete file content"
-  }
-}
-```
-
-**replace_in_file**
-```json
-{
-  "name": "replace_in_file",
-  "description": "Make targeted edits to a file using SEARCH/REPLACE blocks. More efficient than rewriting entire file.",
-  "parameters": {
-    "path": "string",
-    "diff": "string — SEARCH/REPLACE block format"
-  }
-}
-```
-
-**list_files**
-```json
-{
-  "name": "list_files",
-  "description": "List files and directories in a path. Optional recursive listing.",
-  "parameters": {
-    "path": "string",
-    "recursive": "boolean (optional)"
-  }
-}
-```
-
-**search_files**
-```json
-{
-  "name": "search_files",
-  "description": "Search files for content using regex. Returns matching lines with file context.",
-  "parameters": {
-    "path": "string — directory to search",
-    "regex": "string — search pattern",
-    "file_pattern": "string — optional glob filter"
-  }
-}
-```
-
-### Code Intelligence Tools
-
-**list_code_definition_names**
-```json
-{
-  "name": "list_code_definition_names",
-  "description": "List top-level definition names (classes, functions) in all files at a path. Uses AST parsing.",
-  "parameters": {
-    "path": "string — file or directory"
-  }
-}
-```
-
-### Execution Tools
-
-**execute_command**
-```json
-{
-  "name": "execute_command",
-  "description": "Execute a CLI command in the user's terminal. Shows command to user for approval. Supports long-running processes.",
-  "parameters": {
-    "command": "string — the command to run",
-    "requires_approval": "boolean"
-  }
-}
-```
-
-### Browser Tools
-
-**browser_action**
-```json
-{
-  "name": "browser_action",
-  "description": "Interact with a Puppeteer-controlled browser. Actions: launch, click, type, scroll, screenshot, close.",
-  "parameters": {
-    "action": "launch | click | type | scroll | screenshot | close",
-    "url": "string (for launch)",
-    "coordinate": "[x, y] (for click/scroll)",
-    "text": "string (for type)"
-  }
-}
-```
-
-### MCP Tool Integration
-
-MCP tools are dynamically added to the tool list with:
-```json
-{
-  "name": "mcp__servername__toolname",
-  "description": "...(from MCP server's tool manifest)...",
-  "parameters": { "...(from MCP server schema)..." }
-}
-```
-
-### Communication Tools
-
-**ask_followup_question**
-```json
-{
-  "name": "ask_followup_question",
-  "description": "Ask the user for clarification when you need more information to proceed.",
-  "parameters": {
-    "question": "string"
-  }
-}
-```
-
-**attempt_completion**
-```json
-{
-  "name": "attempt_completion",
-  "description": "Signal that the task is complete and present the result to the user.",
-  "parameters": {
-    "result": "string — description of what was accomplished",
-    "command": "string (optional) — command to demonstrate the result, e.g. 'open -a Chrome index.html'"
-  }
-}
-```
-
----
-
-## Approval Flow
-
-Cline's **human-in-the-loop** approval system is its defining characteristic.
-
-### Approval Events
-
-Every significant action triggers an approval prompt:
-
-```
-┌─ Cline wants to: ────────────────────────────┐
-│ Execute command:                              │
-│ $ npm install express                         │
+┌───────────────────────────────────────────────┐
+│              VS Code (Host)                    │
+│  ┌─────────────────────────────────────────┐  │
+│  │            Cline Extension               │  │
+│  │  ┌──────────────┐  ┌────────────────┐  │  │
+│  │  │  Chat Panel  │  │  Tool Handler  │  │  │
+│  │  │  (React UI)  │  │                │  │  │
+│  │  └──────┬───────┘  └───────┬────────┘  │  │
+│  │         │                  │            │  │
+│  │  ┌──────▼──────────────────▼────────┐  │  │
+│  │  │        Cline Agent Loop          │  │  │
+│  │  │  1. Build context (AST + files)  │  │  │
+│  │  │  2. Call LLM with tool schema    │  │  │
+│  │  │  3. Parse tool calls             │  │  │
+│  │  │  4. Show action to user          │  │  │
+│  │  │  5. Execute with permission      │  │  │
+│  │  │  6. Feed result back to LLM      │  │  │
+│  │  │  7. Repeat until done            │  │  │
+│  │  └──────────────────────────────────┘  │  │
+│  └─────────────────────────────────────────┘  │
 │                                               │
-│ [Approve] [Reject] [Always Allow This]        │
+│  VS Code APIs:                                │
+│  - workspace.fs (file system)                 │
+│  - terminal (shell integration v1.93+)        │
+│  - window (diff viewer)                       │
+│  - extension API (linting errors)             │
 └───────────────────────────────────────────────┘
+         │
+         ▼
+   LLM API (Anthropic/OpenAI/etc.)
 ```
 
-```
-┌─ Cline wants to: ────────────────────────────┐
-│ Write file: src/auth.ts                       │
-│                                               │
-│ + import jwt from 'jsonwebtoken'              │
-│ + ...                                         │
-│                                               │
-│ [Approve] [Reject] [Edit]                     │
-└───────────────────────────────────────────────┘
-```
+### The agentic loop in detail
 
-### Approval Levels
-
-**Per-action approval** (default): Every tool call requires approval
-
-**Always Allow rules**: Create rules to auto-approve specific patterns:
-- `npm run *` — always allow npm scripts
-- `git status` — always allow read-only git commands
-- `*.test.ts` edits — always allow test file edits
-
-**Auto-approve mode**: Can be configured to approve all actions (for trusted workflows)
-
-### Approval UI Features
-
-- **Diff view**: File changes shown as colored diff before approval
-- **Command preview**: Exact command shown before execution
-- **Reason**: Cline explains why it's making the action
-- **Edit option**: User can modify the proposed change before approving
-- **Timeline**: VS Code file timeline shows all Cline changes (reversible)
+1. **User describes task** in the Cline chat panel (can include images/screenshots)
+2. Cline **analyzes file structure** using regex searches and AST parsing to understand the codebase
+3. Cline **reads relevant files** to build context about what exists
+4. Cline **proposes an action** (edit a file, run a command, use browser, etc.)
+5. A **diff or command preview** is shown to the user
+6. User **approves or rejects** the action
+7. Cline **executes the approved action** and observes the result
+8. Cline **continues to the next step** until the task is complete
+9. On completion, Cline **opens the result** (e.g., `open -a "Google Chrome" index.html`)
 
 ---
 
-## MCP Integration
+## Tool Use System
 
-Cline's MCP integration is one of its standout features — and uniquely, Cline can **create and install MCP servers** itself.
+Cline uses a structured tool-calling interface with the LLM. Each tool is defined with a name, description, and JSON schema for parameters. The LLM emits tool calls which Cline parses and executes.
 
-### Using Existing MCP Servers
+### Core tools available to Cline
 
-```json
-// .vscode/cline_mcp_settings.json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/projects"],
-      "env": {}
-    },
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
-      }
-    }
-  }
-}
-```
+#### File system tools
 
-### Self-Creating MCP Tools
+| Tool | Description |
+|------|-------------|
+| `write_to_file` | Create or overwrite a file with specified content |
+| `read_file` | Read the full contents of a file |
+| `apply_diff` | Apply a specific diff/patch to a file |
+| `insert_content` | Insert content at a specific line |
+| `search_and_replace` | Find and replace text in a file |
+| `list_files` | List files in a directory (recursive option) |
+| `list_code_definition_names` | List classes/functions in a file (AST-based) |
+| `search_files` | Regex search across all files in the workspace |
 
-Cline can autonomously create new MCP servers when asked:
+#### Terminal tools
 
-```
-User: "Add a tool that fetches Jira tickets"
+| Tool | Description |
+|------|-------------|
+| `execute_command` | Run a shell command and stream output |
 
-Cline:
-1. Creates a new Node.js MCP server project
-2. Implements Jira API integration
-3. Configures tool schema
-4. Installs the server in Cline's settings
-5. Tool is now available for future tasks
-```
+#### Browser tools
 
-This means Cline can **extend its own capabilities** dynamically — not just use pre-built MCP servers.
+| Tool | Description |
+|------|-------------|
+| `browser_action` | Launch browser, navigate, click, type, scroll, screenshot |
 
-### Example Use Cases
+#### MCP tools
 
-- **Jira integration**: Pull ticket details, acceptance criteria → implement feature
-- **AWS EC2 management**: Check server metrics → scale up/down
-- **PagerDuty incidents**: Fetch incident details → investigate code
-- **Custom APIs**: Build adapters for internal tools
+| Tool | Description |
+|------|-------------|
+| `use_mcp_tool` | Call a tool exposed by a connected MCP server |
+| `access_mcp_resource` | Read a resource from a connected MCP server |
 
-### MCP Transport Support
+#### Communication tools
 
-- **stdio**: Local process via stdin/stdout (most common)
-- **SSE**: Remote server via HTTP Server-Sent Events
+| Tool | Description |
+|------|-------------|
+| `ask_followup_question` | Ask the user a clarifying question |
+| `attempt_completion` | Signal task completion and present result |
 
 ---
 
-## Browser Automation
+## Plan & Act Modes
 
-Cline integrates Claude's Computer Use capabilities via Puppeteer:
-
-### Capabilities
-
-```typescript
-// Available browser_action types
-"launch"     // Open a URL in headless/headed browser
-"click"      // Click at specific coordinates
-"type"       // Type text (after clicking a field)
-"scroll"     // Scroll the page
-"screenshot" // Capture current state
-"close"      // Close the browser
-```
-
-### Browser Task Example
-
-```
-User: "Test the login flow and screenshot any errors"
-
-Cline:
-1. browser_action: launch("http://localhost:3000/login")
-2. browser_action: screenshot() → (shows login form)
-3. browser_action: click([320, 450]) → (email field)
-4. browser_action: type("test@example.com")
-5. browser_action: click([320, 500]) → (password field)
-6. browser_action: type("password123")
-7. browser_action: click([320, 560]) → (submit button)
-8. browser_action: screenshot() → (shows error: "Invalid credentials")
-9. → Reports error to user, shows screenshot
-```
-
-### Console Log Access
-
-During browser sessions, Cline captures:
-- JavaScript console.log output
-- JavaScript errors
-- Network request failures
-
-This enables debugging without manual developer tools inspection.
-
----
-
-## Context Management
-
-### How Cline Builds Context
-
-Cline manages context through careful selection of what to include:
-
-**AST Analysis**: Before starting a task, Cline:
-1. Analyzes file structure using AST parsing (`list_code_definition_names`)
-2. Runs regex searches to find relevant code
-3. Reads only the files it needs for the task
-
-This avoids loading the entire codebase while still getting accurate context.
-
-### Context Sources
-
-| Source | How added |
-|--------|-----------|
-| `@file:path` | Explicit file content |
-| `@folder:path` | All files in folder |
-| `@url:https://...` | Fetched URL as markdown |
-| `@problems` | VS Code "Problems" panel errors |
-| Image attachments | Bug screenshots, mockups |
-
-### Cost Tracking
-
-Cline tracks token usage and API costs in real time:
-- Total tokens per task
-- Total cost per task  
-- Per-request breakdown
-
-This transparency helps users understand and control AI spending.
-
----
-
-## Workspace Snapshots
-
-Cline takes snapshots at each step of a task:
-
-### Snapshot System
-
-```
-Task: "Refactor authentication"
-  
-Step 1 snapshot: [state before any changes]
-Step 2 snapshot: [state after writing user.ts]
-Step 3 snapshot: [state after editing auth.ts]
-Step 4 snapshot: [state after running migrations]
-```
-
-### Restore Options
-
-For each snapshot, users can:
-
-**Compare**: Show diff between snapshot and current workspace  
-**Restore Workspace Only**: Roll back files without affecting task history  
-**Restore Task and Workspace**: Roll back everything including conversation
-
-This enables:
-- Safe exploration of different approaches
-- Quick testing of different versions
-- Recovery from bad AI edits
-
----
-
-## Model Support
-
-Cline supports a wide range of LLM providers:
-
-### Supported Providers
-
-| Provider | Models |
-|----------|--------|
-| **Anthropic** | Claude 4 Opus/Sonnet, Claude 3.7 Sonnet, Claude 3.5 Sonnet/Haiku |
-| **OpenRouter** | All OpenRouter models (auto-updated) |
-| **OpenAI** | GPT-4o, GPT-4o mini, o1, o3 |
-| **Google Gemini** | Gemini 2.5 Pro/Flash, Gemini 2.0 Flash |
-| **AWS Bedrock** | Claude via Bedrock |
-| **Azure OpenAI** | Azure-hosted models |
-| **GCP Vertex AI** | Gemini via Vertex |
-| **Cerebras** | Llama models |
-| **Groq** | Fast inference models |
-| **LM Studio** | Local models |
-| **Ollama** | Local models |
-| **OpenAI-compatible** | Any custom endpoint |
-
-### Model Selection Strategy
-
-- **Claude Sonnet**: Recommended default (best overall performance + Cline integration)
-- **Gemini 2.5 Pro**: Strong alternative, large context window
-- **OpenRouter**: For model flexibility and cost optimization
-- **Local models**: For privacy-sensitive codebases
-
-### Context Window Awareness
-
-Cline adapts its behavior to the model's context window:
-- Selects files strategically to fit within limits
-- Warns when context is getting full
-- Prioritizes most relevant files
-
----
-
-## Plan & Act Pipeline
-
-Cline uses a **Plan → Act** pipeline pattern:
+Cline's **Plan/Act mode** system is one of its most distinctive features — a structured separation between *thinking* and *doing*.
 
 ### Plan Mode
 
-When enabled (toggle in UI), Cider:
-1. **Plans** before acting — proposes a full strategy
-2. Shows the plan to user for approval
-3. Only proceeds when user approves
+In Plan mode, Cline can:
+- Read files and analyze code
+- Run searches across the codebase
+- Discuss architecture, tradeoffs, and implementation options
+- Ask clarifying questions
 
-Example:
-```
-Task: "Add dark mode to the app"
+In Plan mode, Cline **cannot**:
+- Write or modify files
+- Execute terminal commands
+- Take any action that changes the system state
 
-Plan:
-1. Check if CSS variables are used (reads globals.css)
-2. Add dark mode media query to globals.css
-3. Add toggle switch component to Header.tsx
-4. Connect toggle to localStorage persistence
-5. Test by running npm run dev
+This constraint is intentional. It prevents Cline from "running ahead" and making changes before the approach is agreed upon. Plan mode is essentially a **read-only exploration + discussion** mode.
 
-[Approve Plan] [Edit Plan] [Reject]
-```
+### Act Mode
 
-### Act Mode (Default)
+In Act mode, Cline:
+- Retains all context from the Plan mode session
+- Can now modify files, run commands, etc.
+- Executes the strategy developed in Plan mode
 
-Without explicit Plan mode, Cline acts incrementally:
-- Announces each action before doing it
-- Approval prompt lets user steer or redirect
-- Each approved action is an implicit "plan step"
+The conversation history carries over seamlessly — Cline "remembers" everything discussed in Plan mode.
 
-### Implicit Planning via System Prompt
+### When to use each
 
-Even in Act mode, Cline's system prompt encourages a planning mindset:
-- Explore before editing
-- Use AST analysis to understand code structure
-- Think about side effects before making changes
+| Scenario | Mode |
+|----------|------|
+| Unfamiliar codebase, exploring before changing | Plan |
+| Debugging complex bugs with uncertain cause | Plan |
+| Architectural decisions affecting many files | Plan |
+| Code review / security analysis | Plan |
+| Clear, routine implementation task | Act |
+| Quick fix with obvious solution | Act |
+| Running tests and adjusting | Act |
+| Following an established pattern | Act |
+
+### Different models for each mode
+
+Cline supports configuring **separate models** for Plan and Act modes:
+
+| Use case | Plan model | Act model |
+|----------|-----------|-----------|
+| Cost optimization | GLM 4.6 | Grok Code Fast |
+| Maximum quality | Claude Opus | Claude Sonnet |
+| Speed-focused | Gemini 3 Flash | Cerebras |
+
+Enable in: Cline Settings → "Use different models for Plan and Act"
+
+### `/deep-planning` command
+
+For complex tasks, the `/deep-planning` slash command triggers an extended planning session:
+
+1. Cline systematically explores the codebase
+2. Identifies all affected files and dependencies
+3. Creates a detailed, step-by-step implementation plan
+4. Asks clarifying questions before proceeding
+
+The deep planning prompt is optimized per model family.
 
 ---
 
-## @-Mention Context System
+## File Operations
 
-Cline's `@-mention` system lets users inject context directly:
+Cline's file editing is designed to be **transparent and reversible**:
 
-### @-Mentions
+### Diff-based editing
 
-| Mention | Effect |
-|---------|--------|
-| `@url:https://...` | Fetches URL, converts to markdown |
-| `@problems` | Adds VS Code Problems panel errors |
-| `@file:path/to/file.ts` | Adds file contents to context |
-| `@folder:src/components` | Adds all files in folder |
+Every file change is shown as a **git-style diff** in VS Code's native diff viewer before being applied. You see exactly what will change.
 
-### Image Support
+### Edit workflow
 
-Users can paste images directly into the chat:
-- Screenshots of UI bugs
-- Design mockups
-- Error dialogs
-
-Cline analyzes images and incorporates them into task understanding:
 ```
-User: [pastes screenshot of broken layout]
-"Fix this alignment issue"
-
-Cline: [analyzes screenshot]
-→ Opens browser
-→ Identifies the broken component
-→ Fixes CSS
-→ Takes screenshot to verify
+Cline proposes: "I'll modify src/auth.py to add JWT validation"
+  ↓
+VS Code diff viewer shows:
+  --- src/auth.py (before)
+  +++ src/auth.py (after)
+  @@ -42,6 +42,15 @@
+  + def validate_jwt(token: str) -> dict:
+  +     """Validate JWT and return payload."""
+  +     try:
+  +         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+  ...
+  ↓
+User clicks "Apply" or "Reject"
 ```
+
+### Linter/compiler monitoring
+
+After applying a file change, Cline:
+1. Observes VS Code's linter/diagnostic output
+2. If there are errors (missing imports, syntax errors), Cline automatically attempts to fix them
+3. This creates a tight feedback loop without requiring the user to manually copy errors
 
 ---
 
 ## Terminal Integration
 
-### VS Code Shell Integration (v1.93+)
+Cline uses **VS Code's shell integration API** (introduced in VS Code v1.93) to:
 
-Cline uses VS Code's shell integration API to:
-- Execute commands directly in VS Code terminal
-- Receive command output as text
-- React to long-running processes
+- Execute commands directly in the VS Code integrated terminal
+- **Stream terminal output** back to the LLM in real-time
+- React to errors as they appear
 
-### Long-Running Processes
+### Supported terminal operations
 
-For dev servers and other persistent processes:
+```bash
+# Install dependencies
+npm install
+pip install -r requirements.txt
 
+# Build
+npm run build
+cargo build
+
+# Test
+pytest tests/
+npm test
+
+# Deploy
+docker build -t myapp .
+kubectl apply -f deployment.yaml
+
+# Start dev server (background)
+npm run dev  →  "Proceed While Running" button
 ```
-Cline: "Starting dev server to test changes"
-  → execute_command("npm run dev")
-  
-User: [Approves]
 
-Cline: [Server running on :3000]
-  → [Proceed While Running] button appears
-  → Cline continues editing while server runs
-  → Any new terminal output is captured
-  → If server crashes, Cline sees the error and reacts
-```
+### Long-running processes
+
+For dev servers and other long-running processes:
+- Cline shows a **"Proceed While Running"** button
+- The command runs in the background
+- Cline continues its task and receives new terminal output as it arrives
+- If the server errors out, Cline is notified and can react
 
 ---
 
-## Configuration & Customization
+## Browser & Computer Use
 
-### Settings (VS Code Settings UI)
+Cline includes a **headless browser** capability powered by Puppeteer (or Playwright):
+
+### What it can do
+
+```
+browser_action: launch
+browser_action: navigate, url="http://localhost:3000"
+browser_action: screenshot
+browser_action: click, coordinate=[x, y]
+browser_action: type, text="hello world"
+browser_action: scroll, coordinate=[x, y], direction="down"
+browser_action: close
+```
+
+### Primary use cases
+
+1. **Runtime error detection**: Launch the dev server, screenshot the app, identify visual/runtime bugs
+2. **End-to-end testing**: Navigate through a web app like a user
+3. **Visual bug fixing**: Take a screenshot of a broken UI, fix the CSS, screenshot again to verify
+4. **Web scraping**: Extract data from websites for integration tasks
+
+### How it works in practice
+
+```
+User: "My React app has a layout bug on mobile"
+  ↓
+Cline: runs `npm run build && npx serve`
+  ↓
+Cline: launches browser, navigates to localhost:3000
+  ↓
+Cline: takes screenshot at mobile viewport
+  ↓
+Cline: analyzes screenshot, identifies misaligned flex container
+  ↓
+Cline: edits App.css, takes another screenshot
+  ↓
+Cline: confirms fix, reports to user
+```
+
+This loop runs entirely within the VS Code session — no manual browser switching needed.
+
+---
+
+## MCP Integration
+
+Cline has first-class support for **Model Context Protocol (MCP)** and can:
+
+1. **Connect to existing MCP servers**
+2. **Build new MCP servers from scratch** (ask Cline: "add a tool that...")
+
+### Connecting MCP servers
+
+MCP servers are configured in VS Code settings or via the Cline UI:
 
 ```json
-// .vscode/settings.json
 {
-  "cline.apiProvider": "anthropic",
-  "cline.apiModelId": "claude-sonnet-4-5-20251101",
-  "cline.autoApproveReadOnly": true,
-  "cline.alwaysAllowWriteOnly": false,
-  "cline.requestDelaySeconds": 0,
-  "cline.diffEnabled": true
+  "cline.mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "ghp_..." }
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"]
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": { "DATABASE_URL": "postgresql://..." }
+    }
+  }
 }
 ```
 
-### Custom Instructions
+### Cline building MCP servers
 
-Users can provide persistent custom instructions:
-```
-Always use TypeScript strict mode.
-Prefer functional components over class components.
-Write JSDoc comments for public functions.
-Use Tailwind CSS for styling.
-```
+A unique feature: ask Cline to create a custom MCP server:
 
-These are injected into every task's system prompt.
+> "Add a tool that lets me query our internal Redis cache"
 
-### .clinerules File
+Cline will:
+1. Create a new MCP server project
+2. Implement the Redis query tool
+3. Install it into the extension configuration
+4. Test it in the current session
 
-Project-level rules in the repository root:
-```
-# .clinerules
+This means Cline can **extend its own capabilities** on demand, making it a self-expanding agent.
 
-## Project Context
-This is a Next.js 14 application using the App Router.
+### The Cline MCP Marketplace
 
-## Conventions
-- Pages go in app/ directory
-- API routes in app/api/
-- Components in components/
-- Always use server components by default
-
-## Testing
-- Run: npm test
-- Test files end in .test.tsx
-```
+Cline has a built-in marketplace of community MCP servers covering:
+- Git operations
+- Database queries (Postgres, MySQL, MongoDB)
+- Cloud services (AWS, GCP, Azure)
+- Communication tools (Slack, Jira, Linear)
+- Browser automation (Puppeteer, Playwright)
+- Code analysis (SonarQube, etc.)
 
 ---
 
-## Enterprise Features
+## Context Management
 
-### Cline Enterprise
+One of Cline's key engineering challenges is **context window management** for large codebases.
 
-Available at cline.bot/enterprise:
+### How Cline builds context
 
-**Single Sign-On (SSO)**:
-- SAML/OIDC integration
-- Enterprise identity provider support
+1. **File structure analysis**: Cline lists the directory tree to understand the project layout
+2. **AST parsing**: For relevant files, Cline uses tree-sitter to extract class/function definitions
+3. **Regex search**: Targeted searches for specific patterns (e.g., "find all places X is called")
+4. **Selective file reading**: Only reads files directly relevant to the task
+5. **Incremental context**: Adds information as needed, not all at once
 
-**Global Policies**:
-- Centrally configure model providers
-- Enforce usage limits
-- Control which tools are available
+This approach is explicitly designed to work even on **large, complex projects without overwhelming the context window**.
 
-**Observability & Audit Trails**:
-- Full audit log of all Cline actions
-- Per-user and per-team usage metrics
-- Cost attribution
+### Token tracking
 
-**Private Networking**:
-- VPC deployment
-- Private Link support
-- Air-gapped environments
+Cline displays **real-time token usage and cost** for every API call:
+- Total tokens for the session
+- Tokens per individual request
+- Estimated cost (based on provider pricing)
 
-**Self-hosted / On-premises**:
-- Deploy Cline's backend on your infrastructure
-- No data leaves your network
+This helps users stay aware of costs before they get surprised.
 
-**Enterprise Support**:
-- SLA guarantees
-- Dedicated support channel
+### Context window limits
+
+When the context window fills up:
+- Cline summarizes earlier conversation history
+- Critical files and recent actions are retained
+- Users are warned before context truncation
 
 ---
 
-## Comparison with Other Harnesses
+## Model Support
 
-| Feature | Cline | Claude Code | Aider | Cursor | OpenCode |
-|---------|-------|-------------|-------|--------|----------|
-| **Interface** | VS Code ext | Terminal + IDE | Terminal | IDE fork | Terminal TUI |
-| **Open Source** | ✅ Apache 2 | ❌ | ✅ Apache 2 | ❌ | ✅ MIT |
-| **Approval model** | Per-action | Tiered modes | Minimal | Per-action | Per-action |
-| **MCP support** | ✅ Full + auto-create | ✅ | ❌ | ❌ | ✅ |
-| **Browser** | ✅ Puppeteer | ✅ Chrome | ❌ | ✅ GA | ❌ |
-| **Snapshots** | ✅ Per-step | ✅ Checkpoints | Git commits | ✅ | ✅ undo/redo |
-| **Cost tracking** | ✅ Per-task | ✅ | ✅ | ✅ | ❌ |
-| **Model support** | 10+ providers | Anthropic | 100+ | 5 providers | 75+ |
-| **Enterprise** | ✅ Full | ✅ Full | ❌ | Limited | ❌ |
-| **AST analysis** | ✅ | Via LSP | ✅ Repo map | ✅ Semantic | ❌ |
-| **Plan mode** | ✅ | ✅ | ✅ Architect | ✅ | ✅ |
-| **Self-hosted** | ✅ Enterprise | ❌ | ✅ | ❌ | N/A |
+Cline supports virtually all major LLM providers:
 
-### Cline's Unique Strengths
+| Provider | Notes |
+|----------|-------|
+| **Anthropic** | Claude 3.5 Sonnet, Haiku, Opus, Claude 3.7 Sonnet |
+| **OpenAI** | GPT-4o, GPT-4.1, o3-mini, o1 |
+| **Google Gemini** | Gemini 1.5 Pro/Flash, Gemini 2.5 Pro |
+| **OpenRouter** | Aggregates 100+ models; auto-updates available models |
+| **AWS Bedrock** | Claude and other Bedrock models |
+| **Azure OpenAI** | Enterprise Azure-hosted models |
+| **GCP Vertex** | Claude via Vertex AI |
+| **Cerebras** | Ultra-fast inference |
+| **Groq** | Fast open-source models |
+| **LM Studio** | Local models via OpenAI-compatible API |
+| **Ollama** | Local models (Llama, Mistral, CodeLlama, etc.) |
 
-1. **Human-in-the-loop by default**: Every action requires approval — ideal for developers who want visibility but still want AI assistance
-2. **MCP self-creation**: Cline can build and install its own MCP tools — unique self-extensibility capability
-3. **Deep VS Code integration**: Leverages VS Code's timeline, terminal, and problems panel natively
-4. **Snapshot system**: Per-step workspace snapshots for safe exploration and rollback
-5. **Enterprise ready**: Full SSO, audit trails, private networking, self-hosted deployment
+**Default recommended model**: Claude 3.5 Sonnet (excellent balance of capability and cost for agentic tasks)
 
-### Cline vs. Claude Code
+---
 
-Both are approvals-first tools, but differ in:
-- **Interface**: Cline lives in VS Code sidebar; Claude Code is a terminal CLI + extension
-- **Extensibility**: Cline can auto-create MCP servers; Claude Code has managed hooks/skills
-- **Enterprise**: Both have enterprise offerings; Claude Code focuses on managed settings + CI/CD
-- **Model allegiance**: Cline is model-agnostic; Claude Code is Claude-only
+## Human-in-the-Loop Safety
 
-### Cline vs. Cursor
+Cline's core philosophy is **"human-in-the-loop at every step"**:
 
-- Cline is an extension; Cursor is a full editor fork
-- Cursor has Composer (in-house model); Cline uses external providers
-- Cursor has multi-agent (8 parallel); Cline is single-agent per task
-- Cline is open source; Cursor is proprietary
-- Both have enterprise offerings
+### Permission model
+
+Every action type can be configured independently:
+
+| Action type | Default | Can be auto-approved |
+|-------------|---------|---------------------|
+| Read files | Auto-approved | N/A |
+| Write/edit files | Requires approval | ✅ |
+| Terminal commands | Requires approval | ✅ (pattern-based) |
+| Browser actions | Requires approval | ✅ |
+| MCP tool calls | Requires approval | ✅ |
+
+### Per-session auto-approve settings
+
+```
+✅ Allow Cline to read files freely
+□  Auto-approve file writes (caution)
+□  Auto-approve terminal: npm test, pytest (specific commands)
+□  Auto-approve terminal: all commands (dangerous)
+□  Auto-approve browser actions
+```
+
+### Why this matters
+
+Unlike Devin or cloud agents that operate autonomously in a sandbox, Cline runs **in your local environment**. This means mistakes can affect your actual files and running processes. The human-in-the-loop design prevents accidents while still enabling high productivity.
+
+---
+
+## Cline vs GitHub Copilot
+
+| Feature | Cline | GitHub Copilot |
+|---------|-------|----------------|
+| Type | VS Code extension (open source) | VS Code extension + GitHub integration |
+| Inline autocomplete | ❌ (focus is on tasks) | ✅ Core feature |
+| Chat mode | ✅ | ✅ |
+| Multi-file editing | ✅ (agent-driven) | ✅ (Copilot Edits) |
+| Agent mode | ✅ (primary mode) | ✅ (agent mode 2025) |
+| Terminal access | ✅ (shell integration) | ✅ |
+| Browser use | ✅ (Puppeteer) | ❌ |
+| MCP integration | ✅ (first-class) | ✅ (via agent mode) |
+| Model choice | Any LLM (100+) | Curated list (5-10 models) |
+| Human-in-loop | ✅ Explicit approval UI | ✅ (command approval) |
+| GitHub integration | Via MCP | ✅ Native |
+| Plan/Act modes | ✅ | ❌ (single mode) |
+| Cost | Token-cost only (no subscription) | $10-19/mo + tokens |
+| Open source | ✅ Apache 2.0 | ❌ |
+| Computer use | ✅ | ❌ |
+| Self-extending via MCP | ✅ (Cline builds MCP servers) | Limited |
+
+### Key differentiator
+
+Cline's biggest edge over Copilot is **depth of autonomy** — it's built from the ground up as an agent, not a chat assistant. The Plan/Act modes, browser use, MCP self-extension, and transparent approval UI represent a fundamentally different design philosophy.
+
+Copilot's edge is **GitHub integration and autocomplete quality** — it lives inside GitHub's ecosystem and has mature, well-tuned inline suggestions.
+
+---
+
+## Cline CLI
+
+In late 2025, Cline released a **CLI version** (preview):
+
+```bash
+# Install
+npm install -g cline-cli
+
+# Run a task
+cline run "Implement OAuth2 authentication in src/auth/"
+
+# Interactive mode
+cline
+
+# With specific model
+cline --model anthropic/claude-3-5-sonnet-20241022
+```
+
+The CLI brings Cline's agentic capabilities outside of VS Code — useful for:
+- Automation scripts
+- CI/CD pipelines
+- Server-side code generation
+- Users who prefer other editors
+
+---
+
+## Community & Marketplace
+
+Cline has a vibrant open-source community:
+
+### GitHub activity (2025)
+
+- 5M+ VS Code marketplace downloads
+- Active contributors from across the world
+- Regular releases with new features
+- Community-maintained MCP server list
+
+### Official resources
+
+- Documentation: https://docs.cline.bot
+- MCP Marketplace: Built into the extension
+- Blog: https://cline.ghost.io
+- GitHub: https://github.com/cline/cline
+
+### Ecosystem forks
+
+Cline inspired several forks and derivatives:
+- **Roo Code** (Nov 2024): Cline fork with additional customization
+- **Kilo Code**: Fork with 500+ model support
+- Several enterprise-focused forks
+
+---
+
+## Strengths & Weaknesses
+
+### ✅ Strengths
+
+1. **Genuinely autonomous**: End-to-end task handling from planning to implementation to testing
+2. **Deep tool use**: File system, terminal, browser, MCP — complete control of the environment
+3. **Plan/Act separation**: Structured thinking before doing — better results on complex tasks
+4. **Open source**: Fully auditable, forkable, customizable
+5. **Model flexibility**: Works with any LLM provider including local models
+6. **Self-extending via MCP**: Can build and install new tools on demand
+7. **Transparent**: Shows every action before executing; human-in-the-loop at every step
+8. **Cost transparency**: Real-time token/cost tracking
+9. **Computer use**: Browser automation for visual debugging is genuinely powerful
+10. **Zero subscription fee**: Pay only for tokens you use (your API key)
+
+### ❌ Weaknesses
+
+1. **No inline autocomplete**: Not designed for continuous code suggestions while typing
+2. **Slow for simple tasks**: Agentic loop overhead for things Copilot handles instantly
+3. **Token costs can add up**: Autonomous exploration of a large codebase burns tokens fast
+4. **Setup friction**: Requires configuring API keys, choosing models, understanding permissions
+5. **No cloud execution**: Runs locally (unlike Devin/Copilot Workspace cloud agents)
+6. **VS Code-only** (mostly): CLI is new and limited vs the full extension
+7. **Context window challenges**: Large codebase exploration can still hit limits
 
 ---
 
 ## Sources
 
-1. [cline/cline GitHub Repository](https://github.com/cline/cline)
-2. [Cline VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev)
-3. [Cline Docs](https://docs.cline.bot/)
-4. [DeepWiki: Cline Architecture Overview](https://deepwiki.com/cline/cline/1.3-architecture-overview)
-5. [DeepWiki: Cline Core System](https://deepwiki.com/cline/cline/2-core-system)
-6. [Roo Code vs Cline Comparison](https://www.qodo.ai/blog/roo-code-vs-cline/)
-7. [Cline Enterprise Page](https://cline.bot/enterprise)
-
----
-
-*Last updated: March 2026*
+- Cline GitHub: https://github.com/cline/cline
+- Cline docs: https://docs.cline.bot
+- Cline Plan & Act docs: https://docs.cline.bot/core-workflows/plan-and-act.md
+- Cline MCP overview: https://docs.cline.bot/mcp/mcp-overview
+- Cline blog (alternatives post): https://cline.ghost.io/6-best-open-source-claude-code-alternatives-in-2025-for-developers-startups-copy/
+- Cline VS Code Marketplace: https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev
+- DeployHQ Cline guide: https://www.deployhq.com/guides/cline
+- AI coding agents comparison: https://artificialanalysis.ai/insights/coding-agents-comparison
+- Morph 15 agents comparison: https://www.morphllm.com/ai-coding-agent

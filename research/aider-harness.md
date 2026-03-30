@@ -1,7 +1,7 @@
-# Aider AI Coding Agent — Comprehensive Overview
+# Aider: AI Pair Programming in Your Terminal
 
-> Research compiled: March 2026  
-> Sources: aider.chat documentation, GitHub Aider-AI/aider
+> Deep-dive research into Aider's architecture, edit strategies, voice coding, model support, and benchmarks.
+> Last updated: March 2026
 
 ---
 
@@ -9,128 +9,137 @@
 
 1. [Overview](#overview)
 2. [Architecture](#architecture)
-3. [Edit Formats](#edit-formats)
-4. [Chat Modes](#chat-modes)
-5. [Repository Map](#repository-map)
-6. [Git Integration](#git-integration)
-7. [Model Support](#model-support)
-8. [Performance & Benchmarks](#performance--benchmarks)
-9. [Configuration](#configuration)
-10. [Linting & Testing](#linting--testing)
-11. [Context Management](#context-management)
-12. [Voice Integration](#voice-integration)
-13. [Browser Interface](#browser-interface)
-14. [Scripting & Automation](#scripting--automation)
-15. [Advanced Features](#advanced-features)
-16. [Comparison with Other Harnesses](#comparison-with-other-harnesses)
-17. [Sources](#sources)
+3. [Repository Map](#repository-map)
+4. [Edit Formats (Strategies)](#edit-formats-strategies)
+5. [Chat Modes](#chat-modes)
+6. [Voice-to-Code](#voice-to-code)
+7. [Model Support & Leaderboards](#model-support--leaderboards)
+8. [CLI Usage & Key Commands](#cli-usage--key-commands)
+9. [Git Integration](#git-integration)
+10. [Large Repo Handling](#large-repo-handling)
+11. [Architect Mode Deep Dive](#architect-mode-deep-dive)
+12. [Benchmarks vs Other Agents](#benchmarks-vs-other-agents)
+13. [Strengths & Weaknesses](#strengths--weaknesses)
+14. [Sources](#sources)
 
 ---
 
 ## Overview
 
-Aider is an open-source AI pair programming tool for the terminal. Unlike many newer AI coding tools, Aider pioneered the pattern of AI pair programming directly in the terminal within a git repository. It's written in Python, works with virtually any LLM provider, and has a sophisticated approach to managing how code edits are communicated between the AI and the file system.
+**Aider** is an open-source, terminal-based AI pair programming tool that lets you write and edit code by chatting with large language models. Unlike IDE plugins, Aider runs from the command line and integrates deeply with your existing git repository. It was created by Paul Gauthier and is maintained by the Aider-AI community under a permissive open-source license.
 
-### Key Facts
+Key facts:
+- Launched: 2023, active development through 2025–2026
+- Category: Local Non-IDE CLI coding agent
+- Model compatibility: Virtually any LLM (OpenAI, Anthropic, Google Gemini, DeepSeek, Groq, Ollama, local models via GGUF)
+- Language support: 100+ programming languages
+- Core design: works in any terminal alongside your existing editor; edits real files in your local git repo
 
-- **Name**: Aider (AI + coder)
-- **License**: Apache 2.0
-- **Language**: Python
-- **GitHub**: [Aider-AI/aider](https://github.com/Aider-AI/aider)
-- **First release**: 2023
-- **Tagline**: "AI pair programming in your terminal"
-- **Primary use**: Interactive coding sessions with deep git integration
-
-### Why Aider is Different
-
-Aider's core innovations:
-1. **Edit formats**: Specialized text formats that tell the LLM *how* to express code changes, optimized per-model
-2. **Repository map**: Graph-ranked summary of the codebase included in every prompt
-3. **Architect mode**: Two-model pipeline where one plans, another edits
-4. **Deep git integration**: Every change is committed with AI-generated messages
-5. **Benchmark-driven**: Publishes and optimizes for public coding benchmarks
+Aider is positioned as a "coding agent you can trust" — it makes precise, reviewable edits to your files, commits them to git with auto-generated messages, and never requires you to leave your terminal.
 
 ---
 
 ## Architecture
 
-### High-Level Components
+Aider's architecture is relatively simple but clever:
 
 ```
-aider/
-├── coders/
-│   ├── base_coder.py      # Core Coder class with agentic loop
-│   ├── editblock_coder.py # SEARCH/REPLACE format
-│   ├── wholefile_coder.py # Whole-file format
-│   ├── udiff_coder.py     # Unified diff format
-│   └── architect_coder.py # Architect mode orchestration
-├── commands.py            # In-chat /commands implementation
-├── io.py                  # Terminal I/O, streaming output
-├── models.py              # LLM provider abstraction
-├── repo.py                # Git repository operations
-├── repomap.py             # Repository map generation
-├── linter.py              # Linting integration
-└── voice.py               # Voice input support
+User prompt
+    │
+    ▼
+Aider CLI (Python)
+    │
+    ├── Repo Map generator (tree-sitter AST analysis)
+    │
+    ├── Context manager (file content + map → LLM prompt)
+    │
+    ▼
+LLM API call (openai/anthropic/google/etc.)
+    │
+    ▼
+Edit parser (format: whole / diff / udiff / diff-fenced)
+    │
+    ▼
+File writer → Git commit
 ```
 
-### Core Coder Class
+### Core components
 
-The `Coder` class is the central engine:
+| Component | Role |
+|-----------|------|
+| `Coder` class | Orchestrates chat, context, and file editing |
+| `RepoMap` | Generates a compact AST-based map of the whole git repo |
+| `Commands` | Handles in-chat slash commands (`/add`, `/drop`, `/commit`, etc.) |
+| `Voice` | Transcribes audio input via OpenAI Whisper |
+| `Model` | Abstraction layer over LLM APIs via `litellm` |
+| `IO` | Handles terminal I/O, colored output, diffs display |
 
-```python
-class Coder:
-    abs_fnames = None  # Files added to the chat context
-    
-    @classmethod
-    def create(cls, main_model, edit_format, io, ...):
-        # Factory method — picks the right coder subclass for the edit format
-        ...
-    
-    def run(self, with_message=None):
-        # Main conversation loop
-        # Handles user input → LLM → edit application → git commit
-        ...
-    
-    def abs_root_path(self, path):
-        # Resolve paths relative to git root
-        ...
-```
-
-### Agentic Loop
-
-Aider's agentic flow:
-
-1. **User sends message** (or reads from stdin in scripted mode)
-2. **Build prompt**:
-   - System prompt (edit format instructions)
-   - Repository map (ranked codebase summary)
-   - Chat file contents (explicitly added files)
-   - Conversation history
-   - User message
-3. **Query LLM** (streaming)
-4. **Parse response** for edit blocks matching the active edit format
-5. **Apply edits** to files
-6. **Auto-fix issues** (if lint/test errors detected and auto-fix enabled)
-7. **Git commit** with AI-generated message
-8. **Return control** to user
-
-### Context Window Management
-
-Aider carefully manages what goes into the context:
-- Explicitly added files: full content included
-- Non-added files: only repo map entries (classes, function signatures)
-- Conversation history: included up to context limit
-- System prompt: static, always included
+Aider uses the [`litellm`](https://github.com/BerriAI/litellm) library as a universal routing layer, which lets it call virtually any LLM API through a unified interface.
 
 ---
 
-## Edit Formats
+## Repository Map
 
-Edit formats are how Aider instructs the LLM to express file changes. This is one of Aider's key architectural innovations — different formats work better with different models.
+One of Aider's most distinctive features is its **repository map** — a compact, token-efficient representation of the entire codebase.
 
-### 1. `whole` Format
+### How it works
 
-The simplest format — LLM returns the complete updated file:
+1. Aider uses **tree-sitter** to parse every file in the git repo and extract:
+   - Class definitions and their methods
+   - Function signatures with argument types
+   - Call relationships between files
+
+2. These symbols are organized into a graph where nodes are source files and edges are import/call dependencies.
+
+3. A **PageRank-style graph ranking algorithm** identifies the most important symbols relative to the current conversation and the files being edited.
+
+4. The top-ranked symbols (fitting within the configured token budget) are rendered into a compact text format and prepended to every LLM prompt.
+
+### Example repo map snippet
+
+```
+aider/coders/base_coder.py:
+⋮...
+│class Coder:
+│ abs_fnames = None
+⋮...
+│ @classmethod
+│ def create(self, main_model, edit_format, io, ...)
+⋮...
+│ def abs_root_path(self, path):
+⋮...
+
+aider/commands.py:
+⋮...
+│class Commands:
+│ voice = None
+│ def get_commands(self):
+│ def run(self, inp):
+⋮...
+```
+
+### Configuration
+
+- Default token budget: `--map-tokens 1024` (1k tokens)
+- Aider **dynamically expands** the map when no files are in context (to maximize understanding)
+- For monorepos: use `--subtree-only` or `.aiderignore` to scope the map
+- The map is updated with every message to reflect current conversation state
+
+### Benefits
+
+- The LLM can understand the full codebase structure without reading every file
+- The model can self-request additional files when needed
+- Prevents "hallucinating" APIs that don't exist in the codebase
+
+---
+
+## Edit Formats (Strategies)
+
+Aider supports multiple **edit formats** — the structured text format used to instruct the LLM how to specify code changes. Different models work better with different formats. Aider auto-selects the optimal format per model, but you can override with `--edit-format`.
+
+### 1. `whole` — Simplest
+
+The LLM returns the **complete updated file content**. Simple, reliable, but expensive for large files (tokens scale with file size, not change size).
 
 ```
 show_greeting.py
@@ -145,17 +154,18 @@ if __name__ == '__main__':
 ```
 ```
 
-**Pros**: Simple, reliable  
-**Cons**: Expensive — entire file sent back even for small changes  
-**Best for**: Small files, models that struggle with diff formats
+**Best for**: Small files; models that struggle with diff syntax; first-time setup.
 
-### 2. `diff` Format (SEARCH/REPLACE)
+**Downsides**: Token-heavy. A 500-line file with a 2-line fix still costs 500-line tokens.
 
-The most common format — LLM specifies edits as search/replace blocks:
+---
+
+### 2. `diff` — Search/Replace blocks
+
+The LLM specifies changes as `SEARCH/REPLACE` blocks using a syntax similar to git merge conflicts:
 
 ```
 mathweb/flask/app.py
-```
 <<<<<<< SEARCH
 from flask import Flask
 =======
@@ -163,15 +173,37 @@ import math
 from flask import Flask
 >>>>>>> REPLACE
 ```
+
+- Only changed sections need to be returned
+- Very token-efficient
+- The SEARCH block must match exactly (whitespace-sensitive)
+- **Default format for most modern models** (Claude Sonnet, DeepSeek, GPT-4o)
+
+---
+
+### 3. `udiff` — Unified diff format
+
+Based on the classic `diff -u` format, but simplified:
+
+```diff
+--- mathweb/flask/app.py
++++ mathweb/flask/app.py
+@@ ... @@
+-class MathWeb:
++import sympy
++
++class MathWeb:
 ```
 
-**Pros**: Efficient — only changed parts returned  
-**Cons**: Requires exact match of SEARCH content  
-**Best for**: Most models — used by default with Claude and GPT-4 family
+Originally developed to combat **lazy coding in GPT-4 Turbo** — when asked to return full files or search/replace blocks, early GPT-4 Turbo would elide large sections with `# … original code here …` comments. Unified diffs made it **3× less lazy** (see Aider blog, Dec 2023).
 
-### 3. `diff-fenced` Format
+Still used as fallback or when `--edit-format udiff` is explicitly set.
 
-Like `diff` but with file path inside the fence:
+---
+
+### 4. `diff-fenced` — Diff with file path inside fence
+
+Variation of `diff` used primarily for **Gemini models** that fail to properly place the file path before the opening fence:
 
 ```
 ```mathweb/flask/app.py
@@ -184,576 +216,440 @@ from flask import Flask
 ```
 ```
 
-**Best for**: Gemini family models (which struggle with external file path placement)
+---
 
-### 4. `udiff` Format
+### 5. `editor-diff` / `editor-whole`
 
-Based on unified diff format (simplified):
+Streamlined versions of `diff`/`whole` used exclusively in **Architect mode** for the editor model. Uses a simpler prompt focused purely on file editing rather than problem-solving.
 
-```diff
---- mathweb/flask/app.py
-+++ mathweb/flask/app.py
-@@ ... @@
--class MathWeb:
-+import sympy
-+
-+class MathWeb:
-```
+### Format selection heuristic
 
-**Best for**: GPT-4 Turbo (reduces "lazy coding" tendencies)
+Aider selects the optimal format automatically:
 
-### 5. `editor-diff` and `editor-whole`
-
-Streamlined versions for use with the **editor model** in architect mode:
-- Narrower prompt focused purely on editing (not problem-solving)
-- The architect has already solved the problem; the editor just applies the solution
-- Reduces edit errors by separating reasoning from formatting
-
-### Edit Format Selection
-
-Aider automatically chooses the optimal edit format for the configured model. Override with:
-```bash
-aider --edit-format diff
-```
+| Model family | Default format |
+|---|---|
+| Claude Sonnet/Opus | `diff` |
+| GPT-4o, GPT-4.1 | `diff` |
+| o1, o3 family | `diff` |
+| Gemini family | `diff-fenced` |
+| Local models (Ollama) | `whole` |
+| GPT-4 Turbo (legacy) | `udiff` |
 
 ---
 
 ## Chat Modes
 
-Aider supports four chat modes:
+Aider has four distinct chat modes that govern how it responds to messages:
 
-### 1. `code` Mode (Default)
-
-Aider makes changes to your code to satisfy requests:
-```
-> Refactor the authentication module to use JWT tokens
-[Aider reads relevant files and applies changes]
-```
-
-### 2. `ask` Mode
-
-Pure Q&A — Aider discusses code but never makes changes:
-```
-ask> What's the best way to implement rate limiting in this API?
-[Aider explains options without modifying files]
-```
-
-### 3. `architect` Mode
-
-Two-model pipeline:
-1. **Architect model** (strong reasoning) proposes *how* to solve the problem
-2. **Editor model** (efficient) translates proposal into specific file edits
-
-```
-architect> Can we simplify the authentication flow?
-[Architect proposes: "Replace custom JWT with a library..."]
-[Editor applies the specific code changes]
-```
-
-This is especially powerful with:
-- OpenAI o1/o3 as architect + GPT-4o as editor
-- Claude Opus as architect + Sonnet as editor
-
-### 4. `help` Mode
-
-Aider answers questions about its own usage and configuration:
-```
-help> How do I use aider with ollama?
-> Run aider --model ollama/<ollama-model>.
-```
-
-### Switching Modes
+### `code` mode (default)
+Aider edits files. The LLM proposes code changes, Aider applies them, and commits to git.
 
 ```bash
-# Switch mode for one message
-/ask What's happening in auth.ts?
-/architect Can we simplify this module?
-/code Now implement the plan
-
-# Sticky mode switch
-/chat-mode architect
-
-# Launch in architect mode
-aider --architect
+> /code Fix the authentication bug in auth.py
 ```
 
-### Ask/Code Workflow Pattern
+### `ask` mode
+Aider discusses code but **never modifies files**. Useful for exploration, understanding, and architecture discussions.
 
-Recommended workflow:
-1. Use `/ask` to discuss approach and get consensus
-2. Switch to `/code` with minimal prompt ("go ahead")
-3. The reasoning from ask mode improves code mode results
+```bash
+> /ask What's the best approach to refactor this module?
+```
+
+### `architect` mode
+Two-model pipeline: one model plans, another edits. See [Architect Mode](#architect-mode-deep-dive).
+
+```bash
+> /architect Redesign the database schema for better performance
+```
+
+### `help` mode
+Answers questions about Aider itself.
+
+```bash
+> /help How do I use Aider with a local Ollama model?
+```
+
+### Switching modes
+
+```bash
+# Sticky switch (affects all subsequent messages)
+/chat-mode code
+/chat-mode architect
+/chat-mode ask
+
+# Per-message switch (reverts after one message)
+/ask What does this function do?
+/code Now fix the bug we found
+```
+
+### Recommended ask/code workflow
+
+1. Start in `/ask` mode — explore the problem, discuss options
+2. Once aligned on the approach, switch to `/code`
+3. Give a terse directive like "go ahead" — Aider uses the full conversation context from the ask phase
 
 ---
 
-## Repository Map
+## Voice-to-Code
 
-The repository map is Aider's context-management innovation. Instead of loading all files, it generates a compact representation of the entire codebase.
+Aider supports **voice-controlled coding** via integration with OpenAI's Whisper speech recognition.
 
-### What the Repo Map Contains
+### How it works
 
-For each file, the repo map includes:
-- Key class names
-- Function/method signatures (with types)
-- Most frequently referenced symbols
+1. User runs `/voice` in the Aider chat
+2. Aider starts recording audio from the microphone
+3. Press `ENTER` to stop recording
+4. Audio is transcribed by Whisper API (or local Whisper model)
+5. The transcript is injected into the chat as if you had typed it
 
-Example output:
-```
-aider/coders/base_coder.py:
-⋮...
-│class Coder:
-│ abs_fnames = None
-⋮...
-│ @classmethod
-│ def create(cls, main_model, edit_format, io, ...):
-│
-│ def abs_root_path(self, path):
-│
-│ def run(self, with_message=None):
+### Setup
+
+```bash
+pip install aider-chat[voice]
+# Or:
+pip install pyaudio
 ```
 
-### How Map Optimization Works
+Requires `OPENAI_API_KEY` for cloud Whisper, or a local Whisper installation.
 
-1. Build a **dependency graph** where nodes are source files, edges are dependencies
-2. Apply **graph ranking algorithm** (similar to PageRank) to identify important symbols
-3. Select the most-referenced portions that fit within the **token budget**
-4. Default token budget: 1024 tokens (adjustable with `--map-tokens`)
+### Example session
 
-The budget is **dynamic** — expands when no files are added to chat (global understanding needed) and contracts when files are present (focused context).
+```
+Aider v0.11.2-dev
+Added app.py to the chat.
 
-### Benefits
+> /voice
+Recording, press ENTER when done... 3.5sec
+"add a factorial endpoint that uses math factorial"
 
-- LLM can understand the codebase structure without reading every file
-- LLM can identify which files to request for more context
-- LLM writes new code that properly uses existing abstractions and APIs
-- Scales to large codebases where full-file loading is impossible
+Add a factorial endpoint that uses math.factorial.
+
+app.py
+<<<<<<< SEARCH
+if __name__ == '__main__':
+    print("Starting...")
+    app.run()
+=======
+@app.route('/fact/<int:x>')
+def factorial(x):
+    result = math.factorial(x)
+    return str(result)
+
+if __name__ == '__main__':
+    print("Starting...")
+    app.run()
+>>>>>>> REPLACE
+
+Applied edit to app.py
+Commit ef9e3e7 aider: Add a factorial endpoint that uses math.factorial.
+```
+
+### Workflow integration
+
+Voice is particularly useful for:
+- Hands-free coding while reviewing diffs on screen
+- Rapid iteration ("make it async", "add error handling")
+- Accessibility use cases
+
+---
+
+## Model Support & Leaderboards
+
+Aider works with virtually any LLM via `litellm`. It maintains a public **code editing leaderboard** at `aider.chat/docs/leaderboards/` showing model performance on Aider's internal benchmark (polyglot coding tasks).
+
+### Top performers (2025–2026, Aider code editing benchmark)
+
+| Model | Score | Cost/run | Edit format |
+|-------|-------|----------|-------------|
+| GPT-5 (high) | 88.0% | $29.08 | diff |
+| o3-pro (high) | 84.9% | $146.32 | diff |
+| Gemini 2.5 Pro (32k think) | 83.1% | $49.88 | diff-fenced |
+| o3 (high) | 81.3% | $21.23 | diff |
+| Grok-4 (high) | 79.6% | $59.62 | diff |
+| Gemini 2.5 Pro (default) | 79.1% | $45.60 | diff-fenced |
+| o3 (high) + GPT-4.1 | 78.2% | $17.55 | architect |
+| Claude Opus 4 (32k think) | 72.0% | $65.75 | diff |
+| DeepSeek R1 (0528) | 71.4% | $4.80 | diff |
+| Claude 3.7 Sonnet (32k think) | 64.9% | $36.83 | diff |
+| Claude 3.7 Sonnet (no think) | 60.4% | $17.72 | diff |
+| DeepSeek V3 (0324) | 55.1% | $1.12 | diff |
+| claude-3-5-sonnet | 51.6% | $14.41 | diff |
+| DeepSeek Chat V3 | 48.4% | $0.34 | diff |
+| GPT-4o-2024-08-06 | 23.1% | $7.03 | diff |
+
+### Connecting to different providers
+
+```bash
+# OpenAI
+aider --model gpt-4o
+
+# Anthropic
+aider --model claude-3-5-sonnet-20241022
+
+# DeepSeek (very cost-effective)
+aider --model deepseek/deepseek-chat
+
+# Google Gemini
+aider --model gemini/gemini-2.5-pro-preview-03-25
+
+# Architect mode with separate editor
+aider --model o3 --editor-model claude-3-5-sonnet-20241022
+
+# Local Ollama model
+aider --model ollama/codellama:34b
+
+# OpenRouter (access many models)
+aider --model openrouter/anthropic/claude-3-opus
+```
+
+---
+
+## CLI Usage & Key Commands
+
+### Starting Aider
+
+```bash
+# Basic start in current git repo
+aider
+
+# Add specific files
+aider src/auth.py src/models.py
+
+# Add files with wildcards
+aider src/*.py
+
+# Start in architect mode
+aider --architect
+
+# Start with specific model
+aider --model claude-3-5-sonnet-20241022
+
+# Non-interactive (scripted) mode
+aider --message "Add docstrings to all functions" src/utils.py
+
+# Read from file
+aider --message-file tasks.md
+```
+
+### In-chat slash commands
+
+| Command | Description |
+|---------|-------------|
+| `/add <file>` | Add file to context |
+| `/drop <file>` | Remove file from context |
+| `/ls` | List files in context |
+| `/diff` | Show git diff of recent changes |
+| `/undo` | Undo last commit made by Aider |
+| `/commit` | Commit current changes with AI-generated message |
+| `/run <cmd>` | Run a shell command and optionally add output to context |
+| `/test <cmd>` | Run tests; add failures to context for fixing |
+| `/voice` | Start voice input recording |
+| `/ask <question>` | Ask a question without editing |
+| `/code <task>` | Request a code change |
+| `/architect <task>` | Use architect mode for this message |
+| `/model <name>` | Switch the active model |
+| `/editor-model <name>` | Change editor model |
+| `/chat-mode <mode>` | Switch active mode |
+| `/reset` | Drop all files and clear chat history |
+| `/clear` | Clear chat history only |
+| `/tokens` | Show token usage for current context |
+| `/map` | Show the current repo map |
+| `/map-refresh` | Force refresh of repo map |
+| `/git <cmd>` | Run a git command |
+| `/help` | Show help |
+
+### Important flags
+
+```bash
+--edit-format <format>      # Force specific edit format
+--map-tokens <n>            # Repo map token budget (default 1024)
+--subtree-only              # Limit map to current subdirectory
+--no-auto-commits           # Disable auto git commits
+--dirty-commits             # Allow commits with uncommitted changes
+--auto-test                 # Run tests after each edit
+--stream / --no-stream      # Toggle streaming output
+--verbose                   # Show full prompts sent to LLM
+--show-diffs                # Always show diffs of edits
+--dark-mode / --light-mode  # Terminal color theme
+--encoding <enc>            # File encoding (default utf-8)
+--config <file>             # Load config from YAML file
+--env-file <file>           # Load env vars from file
+```
 
 ---
 
 ## Git Integration
 
-Aider is tightly coupled to git — it's designed to work *inside* a git repository.
+Aider's git integration is first-class:
 
-### Auto-Commit
+- **Auto-commits**: Every successful edit is committed with an AI-generated message
+- **Commit message format**: `aider: <description of change>`
+- **Undo support**: `/undo` reverts the last Aider commit
+- **Dirty repo handling**: Aider warns about uncommitted changes before starting
+- **Branch awareness**: Aider knows which branch you're on and respects git conventions
+- **`.aiderignore`**: Like `.gitignore` — tells Aider to ignore certain files from its map/context
 
-Every change Aider makes is automatically committed:
-```bash
-$ aider
-> Add error handling to the login function
-
-aider/auth.py: Added try/except block for database errors
-aider/auth.py: Handle ConnectionError specifically
-
-[Committed: "Add error handling to login function - handle DB and connection errors"]
-```
-
-### Commit Features
-
-- **AI-generated commit messages**: Aider describes the change accurately
-- **Atomic commits**: Each response results in one commit
-- **Clean history**: Easy to track what Aider changed
-- **Easy revert**: `git revert` any Aider commit if needed
-
-### Git Configuration
-
-```bash
-# Disable auto-commit (review before committing)
-aider --no-auto-commits
-
-# Specify git repo root
-aider --git /path/to/repo
-
-# Auto-fix and commit after lint errors
-aider --auto-lint
-
-# Auto-run tests and fix on failure
-aider --auto-test
-```
-
-### Working with Branches
-
-Aider works on the current branch — no special branch management. Recommended workflow:
-1. Create a feature branch: `git checkout -b feature/xyz`
-2. Run aider: `aider`
-3. Make changes interactively
-4. Review commits with `git log`
-5. Push and create PR
-
----
-
-## Model Support
-
-Aider supports 100+ LLM providers via [litellm](https://github.com/BerriAI/litellm):
-
-### Supported Providers
-
-| Provider | Key Config |
-|----------|------------|
-| OpenAI | `OPENAI_API_KEY` |
-| Anthropic | `ANTHROPIC_API_KEY` |
-| Google Gemini | `GEMINI_API_KEY` |
-| Groq | `GROQ_API_KEY` |
-| AWS Bedrock | AWS credentials |
-| Azure OpenAI | `AZURE_API_KEY` |
-| Cohere | `COHERE_API_KEY` |
-| DeepSeek | `DEEPSEEK_API_KEY` |
-| xAI | `XAI_API_KEY` |
-| Ollama | Local endpoint |
-| LM Studio | Local endpoint |
-| OpenRouter | `OPENROUTER_API_KEY` |
-| GitHub Copilot | `GITHUB_TOKEN` |
-| Vertex AI | GCP credentials |
-| Any OpenAI-compatible | Custom `--openai-api-base` |
-
-### Model Configuration
-
-```bash
-# Use specific model
-aider --model claude-3-7-sonnet-20250219
-
-# Use Gemini
-aider --model gemini/gemini-2.5-pro-exp-03-25
-
-# Use local Ollama model
-aider --model ollama/codellama
-
-# Architect mode with different models
-aider --architect \
-  --model claude-3-7-sonnet-20250219 \
-  --editor-model claude-3-5-haiku-20241022
-
-# Use reasoning model
-aider --model o3 --reasoning-effort high
-```
-
-### Model Warnings
-
-Aider warns when:
-- Using a model not in its known-good list
-- Applying reasoning settings to models that don't support them
-- Context window may be insufficient
-
----
-
-## Performance & Benchmarks
-
-### Aider LLM Leaderboards
-
-Aider publishes [public benchmarks](https://aider.chat/docs/leaderboards/) on coding tasks:
-
-**Code Editing Leaderboard**
-Tests basic code editing ability — given a task and failing tests, can the model make the tests pass?
-
-**Refactoring Leaderboard**
-Tests ability to refactor complex code while maintaining functionality.
-
-### Top Performers (as of early 2026)
-
-Based on Aider's benchmarks:
-- **Claude models**: Consistently high performers, especially Sonnet 3.7
-- **Gemini 2.5 Pro**: Strong performance on editing tasks
-- **o-series models**: Strong on architect tasks but less optimal for editing alone
-
-### Architect Mode Performance
-
-Architect mode improves results for:
-- Models that are strong reasoners but weaker editors (like o1/o3)
-- Complex refactoring tasks where planning matters
-- Large codebase changes requiring coordination
-
----
-
-## Configuration
-
-### YAML Config File
-
-```yaml
-# ~/.aider.conf.yml or .aider.conf.yml in project
-
-model: claude-3-7-sonnet-20250219
-edit-format: diff
-auto-commits: true
-auto-lint: true
-auto-test: false
-map-tokens: 1024
-chat-history-file: .aider.chat.history.md
-input-history-file: .aider.input.history
-dark-mode: true
-```
-
-### .env File
+### Example commit history
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AI...
-```
-
-### Key CLI Options
-
-| Option | Description |
-|--------|-------------|
-| `--model` | Primary LLM model |
-| `--editor-model` | Editor model in architect mode |
-| `--edit-format` | Override edit format |
-| `--chat-mode` | Starting mode (code/ask/architect) |
-| `--architect` | Start in architect mode |
-| `--auto-commits` / `--no-auto-commits` | Toggle auto-commit |
-| `--auto-lint` | Auto-fix lint errors |
-| `--auto-test` | Auto-run and fix test failures |
-| `--map-tokens` | Repository map token budget |
-| `--read` | Add read-only file to context |
-| `--file` | Add file to chat context |
-| `--yes-always` | Auto-confirm all prompts |
-| `--voice-language` | Language for voice mode |
-
----
-
-## Linting & Testing
-
-### Auto-Lint
-
-When enabled, after every edit:
-1. Run the configured linter
-2. If errors found, send them back to the LLM for fixing
-3. Repeat until clean or limit reached
-
-```bash
-aider --auto-lint
-# OR in config:
-# auto-lint: true
-```
-
-### Auto-Test
-
-Similar to auto-lint but for tests:
-```bash
-aider --auto-test --test-cmd "pytest tests/"
-```
-
-After each edit, runs the test suite. On failure, sends the error output to the LLM for fixing.
-
-### Linter Configuration
-
-```yaml
-# .aider.conf.yml
-lint-cmd:
-  - "python: flake8 {files}"
-  - "javascript: eslint --fix {files}"
-  - "typescript: tsc --noEmit"
+git log --oneline
+ef9e3e7 aider: Add a factorial endpoint that uses math.factorial
+3a2f1b0 aider: Fix import ordering in auth.py
+9c7d4e1 aider: Add docstrings to User model methods
 ```
 
 ---
 
-## Context Management
+## Large Repo Handling
 
-### Adding Files to Chat
+Aider is not optimized for very large monorepos out of the box, but provides tools to manage them:
 
-```bash
-# Add files at startup
-aider auth.py user.py
+### Strategies
 
-# In-chat commands
-/add src/auth.py
-/add src/*.ts  # glob patterns
+1. **Subtree mode**: `aider --subtree-only` limits the repo map to the current directory
+2. **`.aiderignore`**: Exclude irrelevant directories
 
-# Add read-only files (for context, not editing)
-/read-only README.md architecture.md
-
-# Drop files from context
-/drop old-file.py
+```
+# .aiderignore
+/node_modules/
+/vendor/
+/build/
+/dist/
+!src/
+!src/**
 ```
 
-### Context Window Awareness
-
-Aider provides visual feedback on context usage:
-- Shows token count in prompt
-- Warns when approaching limit
-- Repository map automatically adjusts to fit budget
-
-### Prompt Caching
-
-Aider supports prompt caching to reduce costs:
-```yaml
-# Enable caching
-cache-prompts: true
-```
-
-When enabled, static parts of the prompt (system prompt, repo map) are cached for reuse.
+3. **Manual file addition**: Only add the files you're working on
+4. **Map token budget**: Reduce with `--map-tokens 512` for performance
 
 ---
 
-## Voice Integration
+## Architect Mode Deep Dive
 
-Aider supports voice-to-code:
+Architect mode splits coding into two LLM passes:
 
-```bash
-# Start with voice enabled
-aider --voice
-
-# In-session
-/voice
+```
+User prompt
+    │
+    ▼
+Architect model
+(Reasoning: what needs to change and why)
+    │ Plain text plan
+    ▼
+Editor model
+(Implementation: exact diff/whole edits)
+    │
+    ▼
+File changes
 ```
 
-Workflow:
-1. User speaks a coding request
-2. Aider transcribes via the configured speech-to-text provider
-3. Treats transcription as a text prompt
-4. Makes code changes as usual
+### Why it exists
+
+Some models (especially o1, o3, DeepSeek R1) are excellent reasoners but poor at generating syntactically correct diffs. By separating the reasoning from the implementation:
+- The architect focuses on *what* and *why*
+- The editor focuses on *how* (precise file edits)
+
+### Optimal pairings
+
+| Use case | Architect | Editor |
+|----------|-----------|--------|
+| Maximum quality | o3 | GPT-4.1 or Sonnet |
+| Cost-effective | DeepSeek R1 | DeepSeek Chat V3 |
+| All-Claude | Claude Opus | Claude Sonnet |
+| Speed | Sonnet | Haiku |
+
+### Configuration
+
+```bash
+# Use o3 as architect, GPT-4.1 as editor (Aider's example)
+aider --architect --model o3 --editor-model gpt-4.1
+
+# Shorthand flag
+aider --architect
+
+# In chat
+/architect Refactor the payment module to support multiple currencies
+```
+
+The editor model uses `editor-diff` or `editor-whole` format by default — a simplified version optimized for pure file editing tasks.
 
 ---
 
-## Browser Interface
+## Benchmarks vs Other Agents
 
-Aider has an experimental browser UI:
+### Aider's own benchmark
 
-```bash
-aider --browser
-```
+Aider maintains a **polyglot code editing benchmark** measuring correct code changes across 133 exercises in Python, JavaScript, TypeScript, Go, Rust, and more.
 
-Opens a web interface (localhost) for users who prefer not to use the terminal. All functionality same as terminal — just a different front-end.
+### SWE-bench Verified (representative scores, 2024–2025)
 
----
+| Agent / System | SWE-bench Verified | Notes |
+|---|---|---|
+| Claude Opus 4.5 (best agent) | ~80.9% | Top result on leaderboard |
+| GPT-5 Codex | ~77–80% | Via OpenAI Codex scaffold |
+| Claude Code (Opus 4.5) | ~80.9% | Anthropic's own agent |
+| Aider + o3 (high) | 81.3% | On Aider's benchmark |
+| Aider + Gemini 2.5 Pro | 79.1–83.1% | Varies by thinking budget |
+| Aider + DeepSeek R1 | 56.9–74.2% | Very cost-effective |
+| OpenHands + Claude | ~50–60% | Multi-agent framework |
+| SWE-agent 1.0 (Sonnet) | ~40–50% | Research agent |
 
-## Scripting & Automation
+> Note: Direct SWE-bench comparisons are complex — different agents use different evaluation methodologies.
 
-### Command-Line Scripting
+### Aider vs other terminal agents (qualitative)
 
-```bash
-# Non-interactive single shot
-echo "Add docstrings to all functions" | aider --no-auto-commits
-
-# Process files from a list
-aider --yes-always --message "Add type hints" $(cat files_to_update.txt)
-
-# CI/CD integration
-aider --yes-always \
-  --model claude-3-5-sonnet-20241022 \
-  --auto-lint \
-  --message "Fix all pylint errors"
-```
-
-### Python Scripting
-
-```python
-from aider.coders import Coder
-from aider.models import Model
-from aider.io import InputOutput
-
-model = Model("claude-3-5-sonnet-20241022")
-io = InputOutput(yes=True)
-
-coder = Coder.create(
-    main_model=model,
-    io=io,
-    fnames=["src/auth.py", "src/user.py"]
-)
-
-coder.run("Add comprehensive error handling")
-```
+| Factor | Aider | Claude Code | Codex CLI |
+|--------|-------|-------------|-----------|
+| Model choice | Any LLM | Anthropic only | OpenAI only |
+| Git integration | Native, deep | Good | Basic |
+| Repo map | ✅ Tree-sitter AST | ✅ Context window | Limited |
+| Edit formats | 5 formats | Tool-based | Tool-based |
+| Voice input | ✅ | ❌ | ❌ |
+| Cost control | Full (your API key) | Subscription + usage | Subscription + usage |
+| Open source | ✅ Apache 2 | ❌ | ✅ MIT |
+| SWE-bench | Top-tier w/ right model | 80.9% (Opus 4.5) | 77%+ (GPT-5) |
+| UI | Terminal | Terminal | Terminal |
 
 ---
 
-## Advanced Features
+## Strengths & Weaknesses
 
-### AI Comments (IDE Integration)
+### ✅ Strengths
 
-Aider can watch files for special AI comments:
-```python
-# ai: this function needs error handling
-def process_data(items):
-    for item in items:
-        db.save(item)
-```
+1. **Model flexibility**: Use any LLM — from GPT-5 to local Ollama models. No lock-in.
+2. **Token efficiency**: Diff formats and smart repo mapping minimize token costs
+3. **Git-native**: Auto-commit, undo, diff — coding feels like pair programming with a careful teammate
+4. **Voice coding**: Unique feature for hands-free workflows
+5. **Architect mode**: Leverages reasoning models for planning + cheap models for editing
+6. **Benchmark leader**: Consistently near top on code editing benchmarks with the right model
+7. **Open source**: Fully auditable, customizable, extensible
+8. **Works in any terminal**: No IDE dependency, compose with vim/emacs/VSCode as you prefer
+9. **Active development**: Releases frequently, leaderboard updated regularly
 
-When Aider detects `# ai:` comments, it automatically processes them.
+### ❌ Weaknesses
 
-### Infinite Output Support
-
-For models that support prefill (output continuation), Aider can handle "infinite output" — responses longer than a single API call window by using completion/continuation patterns.
-
-### Model Aliases
-
-```yaml
-# ~/.aider.conf.yml
-model-aliases:
-  fast: gpt-4o-mini
-  smart: claude-3-7-sonnet-20250219
-  local: ollama/codellama
-```
-
-Then use: `aider --model fast`
-
-### Reasoning Models Configuration
-
-```bash
-# Use reasoning model with effort level
-aider --model o3 --reasoning-effort high
-
-# For secondary provider reasoning
-aider --model claude-3-7-sonnet-20250219 --thinking-tokens 10000
-```
-
-### Copy/Paste with Web Chat
-
-For models without API access, Aider supports a copy/paste workflow:
-```bash
-aider --copy-paste
-```
-Generates prompts you can paste into any web chat UI, then paste the response back.
-
----
-
-## Comparison with Other Harnesses
-
-| Feature | Aider | Claude Code | Codex CLI | OpenCode | Cline |
-|---------|-------|-------------|-----------|----------|-------|
-| **Open Source** | ✅ Apache 2 | ❌ | ✅ Apache 2 | ✅ MIT | ✅ Apache 2 |
-| **Language** | Python | TypeScript | Rust | Go | TypeScript |
-| **Interface** | Terminal CLI | Terminal + IDE | Terminal CLI | Terminal TUI | VS Code |
-| **Git Integration** | ✅ Deep | ✅ | Limited | Limited | ✅ |
-| **Edit Formats** | ✅ 5+ formats | Internal | Internal | Internal | Internal |
-| **Architect Mode** | ✅ 2-model | ✅ Plan mode | ❌ | ✅ Plan mode | ❌ |
-| **Repo Map** | ✅ Graph-ranked | ✅ (via tools) | ✅ (via tools) | ✅ | ✅ |
-| **MCP Support** | ❌ | ✅ | ✅ | ✅ | ✅ |
-| **Auto-commit** | ✅ Default on | Via hooks | ❌ | ❌ | ❌ |
-| **Auto-lint** | ✅ | Via hooks | ❌ | Via LSP | Via LSP |
-| **Benchmarks** | ✅ Public | ❌ | ❌ | ❌ | ❌ |
-| **Voice** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Browser UI** | ✅ Experimental | ✅ claude.ai | ❌ | Desktop app | VS Code |
-| **Model Support** | 100+ providers | Anthropic | OpenAI + compat | 75+ providers | 10+ providers |
-
-### Aider's Unique Strengths
-
-1. **Edit formats**: The most sophisticated approach to telling LLMs how to express file edits
-2. **Repository map**: Graph-ranked codebase summary — a unique approach to context efficiency
-3. **Public benchmarks**: Only tool that publishes and optimizes for public coding leaderboards
-4. **Git-native**: Deepest git integration — auto-commits with AI messages, clean history
-5. **Architect mode**: Best multi-model pipeline for separating planning from editing
-6. **Python scripting API**: Can be embedded in other tools
-
-### Aider's Limitations
-
-1. **No MCP support**: Cannot extend with MCP servers
-2. **Terminal-only**: No native IDE integration (though AI comments enable some IDE use)
-3. **No cloud mode**: Always runs locally
-4. **No subagents**: Architect mode is the closest (2-model), but no general sub-agent spawning
+1. **No IDE integration**: No diff viewer, syntax highlighting in edits, or inline suggestions
+2. **Large repo performance**: Slow on massive monorepos; map computation takes time
+3. **Context limits**: Very large files can overflow context even with diff formats
+4. **No built-in browser/computer use**: Cannot browse the web or interact with GUIs (unlike Cline)
+5. **No multi-agent**: Single-agent loop; no parallelism like Claude Code's subagents
+6. **Setup friction**: Requires knowing which model to use; beginners may be confused by options
+7. **No persistent memory**: Each session starts fresh; no project-level memory (unlike some cloud agents)
 
 ---
 
 ## Sources
 
-1. [Aider Documentation](https://aider.chat/docs/)
-2. [Aider Edit Formats](https://aider.chat/docs/more/edit-formats.html)
-3. [Aider Chat Modes](https://aider.chat/docs/usage/modes.html)
-4. [Repository Map](https://aider.chat/docs/repomap.html)
-5. [Git Integration](https://aider.chat/docs/git.html)
-6. [LLM Leaderboards](https://aider.chat/docs/leaderboards/)
-7. [Scripting Aider](https://aider.chat/docs/scripting.html)
-8. [Aider GitHub Repository](https://github.com/Aider-AI/aider)
-9. [Aider Blog - Architect Mode](https://aider.chat/2024/09/26/architect.html)
-10. [Aider Blog - Repository Map](https://aider.chat/2023/10/22/repomap.html)
-
----
-
-*Last updated: March 2026*
+- Official Aider documentation: https://aider.chat/docs/
+- Edit formats: https://aider.chat/docs/more/edit-formats.html
+- Unified diffs blog post: https://aider.chat/docs/unified-diffs.html
+- Chat modes: https://aider.chat/docs/usage/modes.html
+- Repository map: https://aider.chat/docs/repomap.html
+- Voice coding: https://aider.chat/docs/usage/voice.html
+- LLM leaderboards: https://aider.chat/docs/leaderboards/
+- FAQ: https://aider.chat/docs/faq.html
+- Aider GitHub: https://github.com/Aider-AI/aider
+- Architect mode blog: https://aider.chat/2024/09/26/architect.html
+- Unified diffs research: https://aider.chat/2023/12/21/unified-diffs.html
+- SWE-bench Verified leaderboard: https://www.swebench.com/verified.html
+- Aider coding tools comparison: https://www.ikangai.com/agentic-coding-tools-explained-complete-setup-guide-for-claude-code-aider-and-cli-based-ai-development/
