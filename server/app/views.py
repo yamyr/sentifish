@@ -267,14 +267,13 @@ async def create_run(body: dict):
     """
     provider_names = body.get("providers")
     raw_top_k = body.get("top_k", 10)
-
+    top_k_err = "top_k must be an integer between 1 and 100"
+    if not isinstance(raw_top_k, (int, float, str)):
+        raise HTTPException(status_code=400, detail=top_k_err)
     try:
         top_k = max(1, min(int(raw_top_k), 100))
-    except TypeError, ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail="top_k must be an integer between 1 and 100",
-        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail=top_k_err)
 
     if not provider_names:
         raise HTTPException(status_code=400, detail="'providers' list is required")

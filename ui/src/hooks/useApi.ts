@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { sentifishApi, type EvalRunRequest, type MultiEvalRunRequest, type ToolDefinition } from "@/lib/api/sentifish";
+import { sentifishApi, type EvalRunRequest, type MultiEvalRunRequest, type ToolDefinition, type LatestRunSummary } from "@/lib/api/sentifish";
 
 const API_BASE = import.meta.env.VITE_SENTIFISH_API_URL || "";
 
@@ -158,6 +158,14 @@ export function useNarrationText(runId: string | null) {
     queryKey: ["narration", runId],
     queryFn: () => sentifishApi.getNarrationText(runId!),
     enabled: !!runId,
+    staleTime: 60_000,
+  });
+}
+
+export function useLatestRunSummary() {
+  return useQuery({
+    queryKey: ["latestRunSummary"],
+    queryFn: sentifishApi.getLatestRunSummary,
     staleTime: 60_000,
   });
 }

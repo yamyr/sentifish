@@ -15,6 +15,9 @@ results/
 node_modules/
 portal/
 
+# Claude Code local state
+.claude/
+
 # Prevent accidental secret commits
 *.env.local
 *.env.production

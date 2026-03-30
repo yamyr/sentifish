@@ -82,6 +82,22 @@ export interface RunSummary {
   };
 }
 
+export interface LatestRunSummary {
+  source: "live" | "sample";
+  run_id?: string;
+  dataset_name?: string;
+  summary: Record<string, {
+    mean_precision_at_k: number;
+    mean_recall_at_k: number;
+    mean_ndcg_at_k: number;
+    mean_mrr: number;
+    mean_map_at_k: number;
+    mean_content_depth: number;
+    mean_latency_ms: number;
+    total_queries: number;
+  }>;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   provider: string;
@@ -206,6 +222,9 @@ export const sentifishApi = {
     apiFetch<{ id: string; dataset_name: string; status: string; summary: RunSummary }>(
       `/api/runs/${id}/summary`
     ),
+
+  getLatestRunSummary: () =>
+    apiFetch<LatestRunSummary>("/api/runs/latest/summary"),
 
   getAllProviders: () =>
     apiFetch<{ providers: { name: string; available: boolean }[] }>("/api/providers/all").then(
