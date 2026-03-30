@@ -46,6 +46,8 @@ function timeAgo(ts: number): string {
   return `${days}d ago`;
 }
 
+const API_BASE = import.meta.env.VITE_SENTIFISH_API_URL || "";
+
 export default function RecentRuns() {
   const { data: runs, isLoading } = useRuns();
   const [filter, setFilter] = useState("");
@@ -178,18 +180,34 @@ export default function RecentRuns() {
                         {timeAgo(run.created_at)}
                       </span>
 
-                      {/* Report button */}
+                      {/* Export & Report buttons */}
                       {run.status === "completed" && (
-                        <Link
-                          to={`/report/${run.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="shrink-0"
-                        >
-                          <Button variant="outline" size="sm" className="gap-1 text-xs">
-                            <BarChart3 className="h-3 w-3" />
-                            Report
-                          </Button>
-                        </Link>
+                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <a
+                            href={`${API_BASE}/api/runs/${run.id}/export/csv`}
+                            download
+                            className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                            title="Export CSV"
+                          >
+                            CSV
+                          </a>
+                          <a
+                            href={`${API_BASE}/api/runs/${run.id}/export/json`}
+                            download
+                            className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                            title="Export JSON"
+                          >
+                            JSON
+                          </a>
+                          <Link
+                            to={`/report/${run.id}`}
+                          >
+                            <Button variant="outline" size="sm" className="gap-1 text-xs">
+                              <BarChart3 className="h-3 w-3" />
+                              Report
+                            </Button>
+                          </Link>
+                        </div>
                       )}
 
                       {/* Expand toggle */}

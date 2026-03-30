@@ -1,8 +1,8 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Shield, Zap, Globe, Fish, Trophy, Search, Compass, type LucideIcon } from "lucide-react";
-
-// TODO: fetch from /api/runs/latest
+import { useLatestRunSummary } from "@/hooks/useApi";
 
 interface Benchmark {
   name: string;
@@ -37,8 +37,6 @@ function computeBests(data: Benchmark[]) {
   bests.latency = Math.min(...data.map((b) => b.latency));
   return bests;
 }
-
-const bests = computeBests(benchmarks);
 
 const MAX_LATENCY = 2000;
 
@@ -120,7 +118,7 @@ function LatencyBar({
 }
 
 /** Desktop table view (hidden below md). */
-function DesktopTable() {
+function DesktopTable({ data, bests }: { data: Benchmark[]; bests: Record<string, number> }) {
   return (
     <div className="hidden md:block">
       <div className="rounded-2xl border border-border bg-card overflow-hidden glow-indigo gradient-border">
@@ -170,9 +168,9 @@ function DesktopTable() {
             whileInView="visible"
             viewport={{ once: true, margin: "-80px" }}
           >
-            {benchmarks.map((b, i) => {
+            {data.map((b, i) => {
               const { Icon, color } = b;
-              const isLast = i === benchmarks.length - 1;
+              const isLast = i === data.length - 1;
 
               return (
                 <motion.tr
@@ -246,7 +244,7 @@ function DesktopTable() {
 }
 
 /** Mobile card view (visible below md). */
-function MobileCards() {
+function MobileCards({ data, bests }: { data: Benchmark[]; bests: Record<string, number> }) {
   return (
     <motion.div
       initial="hidden"
@@ -254,7 +252,7 @@ function MobileCards() {
       viewport={{ once: true, margin: "-80px" }}
       className="flex flex-col gap-4 md:hidden"
     >
-      {benchmarks.map((b, i) => {
+      {data.map((b, i) => {
         const { Icon, color } = b;
 
         return (
@@ -324,56 +322,97 @@ function MobileCards() {
   );
 }
 
-const BenchmarkTable = () => (
-  <section id="providers" className="overflow-x-hidden bg-background py-24">
-    <div className="mx-auto max-w-6xl px-6">
-      {/* Section header */}
-      <motion.div
-        initial={{ opacity: 0, x: -30 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true, margin: "-80px" }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="mb-14 text-center"
-      >
-        <p className="font-mono-brand text-[11px] uppercase tracking-[0.2em] text-brand-cyan">
-          Benchmarks
-        </p>
-        <h2 className="mt-3 font-sans-brand text-3xl font-bold text-foreground sm:text-4xl">
-          Six Providers,{" "}
-          <span className="bg-gradient-to-r from-brand-cyan to-brand-indigo bg-clip-text text-transparent">
-            One Benchmark
-          </span>
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-          Same queries, same dataset, scored with real IR metrics.
-        </p>
-      </motion.div>
+const BenchmarkTable = () => {
+  const { data: latestSummary } = useLatestRunSummary();
 
-      {/* Table (desktop) / Cards (mobile) */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true, margin: "-60px" }}
-        transition={{ duration: 0.5, delay: 0.15 }}
-      >
-        <DesktopTable />
-        <MobileCards />
-      </motion.div>
+  const liveBenchmarks = useMemo(() => {
+    if (!latestSummary || latestSummary.source === "sample" || Object.keys(latestSummary.summary).length === 0) {
+      return null;
+    }
+    const providerMeta: Record<string, { Icon: LucideIcon; color: string }> = {
+      brave: { Icon: Shield, color: "brand-indigo" },
+      serper: { Icon: Zap, color: "brand-cyan" },
+      serpapi: { Icon: Search, color: "primary" },
+      tavily: { Icon: Globe, color: "warning" },
+      exa: { Icon: Compass, color: "destructive" },
+      tinyfish: { Icon: Fish, color: "success" },
+    };
 
-      {/* Footer */}
-      <div className="mt-6 flex flex-col items-center gap-3">
-        <p className="font-mono-brand text-xs text-muted-foreground mt-4 text-center">
-          Scores from sample dataset. Results vary by query set.
-        </p>
-        <Link
-          to="/dashboard"
-          className="font-sans-brand text-sm font-semibold text-brand-cyan transition-colors hover:text-brand-cyan/80"
+    return Object.entries(latestSummary.summary).map(([provider, metrics]) => ({
+      name: provider.charAt(0).toUpperCase() + provider.slice(1),
+      ndcg: +metrics.mean_ndcg_at_k.toFixed(2),
+      map: +metrics.mean_map_at_k.toFixed(2),
+      recall: +metrics.mean_recall_at_k.toFixed(2),
+      contentDepth: +metrics.mean_content_depth.toFixed(2),
+      latency: Math.round(metrics.mean_latency_ms),
+      ...(providerMeta[provider] ?? { Icon: Globe, color: "muted" }),
+    }));
+  }, [latestSummary]);
+
+  const activeBenchmarks = liveBenchmarks ?? benchmarks;
+  const isLive = !!liveBenchmarks;
+  const bests = computeBests(activeBenchmarks);
+
+  return (
+    <section id="providers" className="overflow-x-hidden bg-background py-24">
+      <div className="mx-auto max-w-6xl px-6">
+        {/* Section header */}
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="mb-14 text-center"
         >
-          Run your own benchmark &rarr;
-        </Link>
+          <p className="font-mono-brand text-[11px] uppercase tracking-[0.2em] text-brand-cyan">
+            Benchmarks
+          </p>
+          <h2 className="mt-3 inline-flex items-center font-sans-brand text-3xl font-bold text-foreground sm:text-4xl">
+            Six Providers,{" "}
+            <span className="bg-gradient-to-r from-brand-cyan to-brand-indigo bg-clip-text text-transparent">
+              One Benchmark
+            </span>
+            {isLive ? (
+              <span className="ml-3 rounded-full bg-success/10 px-3 py-1 text-xs font-medium text-success ring-1 ring-success/20">
+                Live data
+              </span>
+            ) : (
+              <span className="ml-3 rounded-full bg-warning/10 px-3 py-1 text-xs font-medium text-warning ring-1 ring-warning/20">
+                Sample data
+              </span>
+            )}
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
+            Same queries, same dataset, scored with real IR metrics.
+          </p>
+        </motion.div>
+
+        {/* Table (desktop) / Cards (mobile) */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+        >
+          <DesktopTable data={activeBenchmarks} bests={bests} />
+          <MobileCards data={activeBenchmarks} bests={bests} />
+        </motion.div>
+
+        {/* Footer */}
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <p className="font-mono-brand text-xs text-muted-foreground mt-4 text-center">
+            {isLive ? "Scores from latest completed run." : "Scores from sample dataset."} Results vary by query set.
+          </p>
+          <Link
+            to="/dashboard"
+            className="font-sans-brand text-sm font-semibold text-brand-cyan transition-colors hover:text-brand-cyan/80"
+          >
+            Run your own benchmark &rarr;
+          </Link>
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 export default BenchmarkTable;
