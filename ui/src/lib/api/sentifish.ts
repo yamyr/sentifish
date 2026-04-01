@@ -179,6 +179,20 @@ export interface MetricRecommendation {
   llm_used: boolean;
 }
 
+export interface EvalSchedule {
+  id: string;
+  name: string;
+  dataset_name: string;
+  providers: string[];
+  top_k: number;
+  interval_minutes: number;
+  enabled: boolean;
+  created_at: number;
+  last_run_id: string | null;
+  last_run_at: number | null;
+  run_count: number;
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -282,4 +296,16 @@ export const sentifishApi = {
     const res = await fetch(`${API_BASE}/api/metrics`);
     return res.json();
   },
+
+  getSchedules: () =>
+    apiFetch<{ schedules: EvalSchedule[] }>("/api/schedules").then((r) => r.schedules),
+  createSchedule: (schedule: Omit<EvalSchedule, "id" | "created_at" | "last_run_id" | "last_run_at" | "run_count">) =>
+    apiFetch<{ ok: boolean; id: string }>("/api/schedules", {
+      method: "POST",
+      body: JSON.stringify(schedule),
+    }),
+  deleteSchedule: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/api/schedules/${id}`, { method: "DELETE" }),
+  toggleSchedule: (id: string) =>
+    apiFetch<{ ok: boolean; enabled: boolean }>(`/api/schedules/${id}/toggle`, { method: "PATCH" }),
 };

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { sentifishApi, type EvalRunRequest, type MultiEvalRunRequest, type ToolDefinition, type LatestRunSummary } from "@/lib/api/sentifish";
+import { sentifishApi, type EvalRunRequest, type MultiEvalRunRequest, type ToolDefinition, type LatestRunSummary, type EvalSchedule } from "@/lib/api/sentifish";
 
 const API_BASE = import.meta.env.VITE_SENTIFISH_API_URL || "";
 
@@ -212,4 +212,36 @@ export function useCreateTask() {
 
 export function useRecommendMetrics() {
   return useMutation({ mutationFn: sentifishApi.recommendMetrics });
+}
+
+export function useSchedules() {
+  return useQuery({
+    queryKey: ["schedules"],
+    queryFn: sentifishApi.getSchedules,
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: sentifishApi.createSchedule,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["schedules"] }),
+  });
+}
+
+export function useDeleteSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: sentifishApi.deleteSchedule,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["schedules"] }),
+  });
+}
+
+export function useToggleSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: sentifishApi.toggleSchedule,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["schedules"] }),
+  });
 }

@@ -228,3 +228,19 @@ class EvalRun(BaseModel):
         for s in self.scores:
             costs[s.provider] = costs.get(s.provider, 0.0) + s.cost_usd
         return costs
+
+
+class EvalSchedule(BaseModel):
+    """A scheduled recurring evaluation."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    dataset_name: str
+    providers: list[str]
+    top_k: int = Field(default=10, ge=1, le=100)
+    interval_minutes: int = Field(default=360, ge=5, le=10080)  # 5min to 7 days
+    enabled: bool = True
+    created_at: float = Field(default_factory=time.time)
+    last_run_id: str | None = None
+    last_run_at: float | None = None
+    run_count: int = 0

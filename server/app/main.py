@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -7,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from rich.logging import RichHandler
 
+from . import scheduler
 from .config import settings
 from .runner import load_persisted_runs
 from .task_registry import load_persisted_tasks
@@ -30,12 +32,16 @@ async def lifespan(app):
     load_persisted_runs()
     load_persisted_tools()
     load_persisted_tasks()
+    count = scheduler.load_persisted_schedules()
+    logger.info("Loaded %d schedules", count)
+    scheduler_task = asyncio.create_task(scheduler.run_scheduler())
     logger.info(
         "Sentifish started — results dir: %s (%d runs loaded)",
         results_path.resolve(),
         len(list(results_path.glob("*.json"))),
     )
     yield
+    scheduler_task.cancel()
     logger.info("Sentifish shutting down")
 
 
