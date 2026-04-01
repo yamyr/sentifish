@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { useRuns } from "@/hooks/useApi";
 import { MetricTooltip } from "@/components/dashboard/MetricTooltip";
-import { BarChart3, Zap, Target, Sparkles } from "lucide-react";
+import { BarChart3, Zap, Target, Sparkles, DollarSign } from "lucide-react";
 
 const container = {
   hidden: { opacity: 0 },
@@ -43,6 +43,11 @@ const colorMap: Record<
     ring: "ring-brand-cyan/20",
     dot: "bg-brand-cyan",
   },
+  "text-danger": {
+    bg: "bg-danger/10",
+    ring: "ring-danger/20",
+    dot: "bg-danger",
+  },
 };
 
 export default function StatCards() {
@@ -51,6 +56,11 @@ export default function StatCards() {
   const stats = useMemo(() => {
     const completedRuns = runs?.filter((r) => r.status === "completed") ?? [];
     const allScores = completedRuns.flatMap((r) => r.scores ?? []).filter(Boolean);
+
+    // Run cost from latest completed run
+    const latestCompleted = completedRuns.sort((a, b) => b.created_at - a.created_at)[0];
+    const latestScores = latestCompleted?.scores ?? [];
+    const runCost = latestScores.reduce((sum, s) => sum + (s.cost_usd ?? 0), 0);
 
     // Total queries
     const totalQueries = allScores.length;
@@ -94,6 +104,7 @@ export default function StatCards() {
       bestJudge: totalQueries > 0 ? bestJudge.toFixed(3) : "\u2014",
       bestJudgeProvider: totalQueries > 0 ? bestJudgeProvider : "\u2014",
       totalRuns: runs?.length ?? 0,
+      runCost: runCost > 0 ? `$${runCost.toFixed(2)}` : "$0.00",
     };
   }, [runs]);
 
@@ -130,6 +141,14 @@ export default function StatCards() {
       color: "text-brand-cyan",
       metricKey: "llm_judge_score",
     },
+    {
+      label: "Run Cost",
+      value: stats.runCost,
+      sub: null,
+      icon: DollarSign,
+      color: "text-danger",
+      metricKey: null,
+    },
   ];
 
   return (
@@ -137,7 +156,7 @@ export default function StatCards() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
     >
       {cards.map((card) => {
         const Icon = card.icon;

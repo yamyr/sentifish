@@ -54,6 +54,7 @@ class QueryScore(BaseModel):
     llm_judge_score: float = Field(default=0.0, ge=0.0, le=1.0)
     llm_judge_reasoning: str = ""
     latency_ms: float = Field(default=0.0, ge=0.0)
+    cost_usd: float = 0.0
     result_count: int = 0
     results: list[SearchResult] = Field(default_factory=list)
 
@@ -202,6 +203,7 @@ class EvalRun(BaseModel):
                 "mean_content_depth": sum(s.content_depth for s in query_scores) / n,
                 "mean_llm_judge_score": sum(s.llm_judge_score for s in query_scores) / n,
                 "mean_latency_ms": sum(s.latency_ms for s in query_scores) / n,
+                "mean_cost_usd": sum(s.cost_usd for s in query_scores) / n,
                 "total_queries": n,
                 "composite_score": round(
                     (
@@ -215,3 +217,14 @@ class EvalRun(BaseModel):
                 ),
             }
         return out
+
+    @property
+    def total_cost_usd(self) -> float:
+        return sum(s.cost_usd for s in self.scores)
+
+    @property
+    def cost_by_provider(self) -> dict[str, float]:
+        costs: dict[str, float] = {}
+        for s in self.scores:
+            costs[s.provider] = costs.get(s.provider, 0.0) + s.cost_usd
+        return costs
