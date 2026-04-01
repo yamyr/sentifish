@@ -30,16 +30,17 @@ interface ProviderMetrics {
   contentDepth: number;
   judgeScore: number;
   latency: number;
+  cost: number;
   precision: number;
   mrr: number;
 }
 
 const MOCK_DATA: Record<string, ProviderMetrics> = {
-  brave: { ndcg: 0.84, map: 0.79, recall: 0.76, contentDepth: 0.35, judgeScore: 0.82, latency: 320, precision: 0.80, mrr: 0.78 },
-  serper: { ndcg: 0.80, map: 0.76, recall: 0.81, contentDepth: 0.30, judgeScore: 0.78, latency: 180, precision: 0.77, mrr: 0.75 },
-  tavily: { ndcg: 0.89, map: 0.84, recall: 0.73, contentDepth: 0.55, judgeScore: 0.88, latency: 440, precision: 0.82, mrr: 0.85 },
-  exa: { ndcg: 0.87, map: 0.82, recall: 0.80, contentDepth: 0.60, judgeScore: 0.85, latency: 350, precision: 0.81, mrr: 0.83 },
-  tinyfish: { ndcg: 0.72, map: 0.65, recall: 0.60, contentDepth: 0.92, judgeScore: 0.75, latency: 25000, precision: 0.68, mrr: 0.70 },
+  brave: { ndcg: 0.84, map: 0.79, recall: 0.76, contentDepth: 0.35, judgeScore: 0.82, latency: 320, cost: 0.003, precision: 0.80, mrr: 0.78 },
+  serper: { ndcg: 0.80, map: 0.76, recall: 0.81, contentDepth: 0.30, judgeScore: 0.78, latency: 180, cost: 0.001, precision: 0.77, mrr: 0.75 },
+  tavily: { ndcg: 0.89, map: 0.84, recall: 0.73, contentDepth: 0.55, judgeScore: 0.88, latency: 440, cost: 0.005, precision: 0.82, mrr: 0.85 },
+  exa: { ndcg: 0.87, map: 0.82, recall: 0.80, contentDepth: 0.60, judgeScore: 0.85, latency: 350, cost: 0.004, precision: 0.81, mrr: 0.83 },
+  tinyfish: { ndcg: 0.72, map: 0.65, recall: 0.60, contentDepth: 0.92, judgeScore: 0.75, latency: 25000, cost: 0.002, precision: 0.68, mrr: 0.70 },
 };
 
 const BAR_METRICS: { key: keyof ProviderMetrics; label: string; metricKey: string }[] = [
@@ -86,6 +87,7 @@ export default function ProviderComparison() {
           contentDepth: 0,
           judgeScore: 0,
           latency: 0,
+          cost: 0,
           precision: 0,
           mrr: 0,
         };
@@ -102,6 +104,7 @@ export default function ProviderComparison() {
       byProvider[p].contentDepth += score.content_depth ?? 0;
       byProvider[p].judgeScore += score.llm_judge_score ?? 0;
       byProvider[p].latency += score.latency_ms;
+      byProvider[p].cost += score.cost_usd ?? 0;
       byProvider[p].precision += score.precision_at_k;
       byProvider[p].mrr += score.mrr;
     }
@@ -114,6 +117,7 @@ export default function ProviderComparison() {
       byProvider[p].contentDepth /= n;
       byProvider[p].judgeScore /= n;
       byProvider[p].latency /= n;
+      byProvider[p].cost /= n;
       byProvider[p].precision /= n;
       byProvider[p].mrr /= n;
     }
@@ -245,6 +249,32 @@ export default function ProviderComparison() {
                   >
                     <p className={`font-mono-brand text-base font-bold ${PROVIDER_TEXT_COLORS[p] ?? "text-foreground"}`}>
                       {display}
+                    </p>
+                    <p className="text-xs text-muted-foreground capitalize">{p}</p>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Cost per query grid */}
+          <div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Cost Per Query
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {providers.map((p) => {
+                const cost = metrics[p].cost;
+                return (
+                  <motion.div
+                    key={p}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.2 }}
+                    className="gradient-border rounded-lg border bg-secondary/50 p-3 text-center hover:shadow-sm transition-shadow"
+                  >
+                    <p className={`font-mono-brand text-base font-bold ${PROVIDER_TEXT_COLORS[p] ?? "text-foreground"}`}>
+                      ${cost.toFixed(3)}
                     </p>
                     <p className="text-xs text-muted-foreground capitalize">{p}</p>
                   </motion.div>

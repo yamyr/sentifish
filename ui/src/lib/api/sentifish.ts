@@ -44,6 +44,7 @@ export interface QueryScore {
   llm_judge_score: number;
   llm_judge_reasoning: string;
   latency_ms: number;
+  cost_usd: number;
   result_count: number;
   results: SearchResult[];
 }
@@ -77,6 +78,7 @@ export interface RunSummary {
     mean_content_depth: number;
     mean_llm_judge_score: number;
     mean_latency_ms: number;
+    mean_cost_usd: number;
     total_queries: number;
     composite_score: number;
   };
@@ -103,6 +105,7 @@ export interface LeaderboardEntry {
   provider: string;
   avg_score: number;
   avg_latency_ms: number;
+  avg_cost_per_query: number;
   run_count: number;
   trend: string;
 }

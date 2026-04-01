@@ -453,6 +453,7 @@ def get_leaderboard(metric: str = "composite_score", limit: int = 20):
     # Aggregate per provider
     provider_scores: dict[str, list[float]] = defaultdict(list)
     provider_latencies: dict[str, list[float]] = defaultdict(list)
+    provider_costs: dict[str, list[float]] = defaultdict(list)
     provider_runs: dict[str, int] = defaultdict(int)
 
     for run in runs:
@@ -460,6 +461,7 @@ def get_leaderboard(metric: str = "composite_score", limit: int = 20):
         for provider, stats in summary.items():
             provider_runs[provider] += 1
             provider_latencies[provider].append(stats.get("mean_latency_ms", 0))
+            provider_costs[provider].append(stats.get("mean_cost_usd", 0))
 
             if metric == "composite_score":
                 score = (
@@ -477,12 +479,15 @@ def get_leaderboard(metric: str = "composite_score", limit: int = 20):
     for provider, scores in provider_scores.items():
         avg_score = sum(scores) / len(scores)
         avg_latency = sum(provider_latencies[provider]) / len(provider_latencies[provider])
+        costs = provider_costs[provider]
+        avg_cost = sum(costs) / len(costs) if costs else 0.0
         leaderboard.append(
             {
                 "rank": 0,  # filled below
                 "provider": provider,
                 "avg_score": round(avg_score, 1),
                 "avg_latency_ms": round(avg_latency, 1),
+                "avg_cost_per_query": round(avg_cost, 6),
                 "run_count": provider_runs[provider],
                 "trend": "stable",  # could be computed from score history
             }

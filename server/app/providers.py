@@ -329,6 +329,16 @@ _KEY_MAP: dict[str, str] = {
     "tinyfish": "tinyfish_api_key",
 }
 
+# Approximate cost per query in USD (2026-Q1 pricing)
+PROVIDER_COST_PER_QUERY: dict[str, float] = {
+    "brave": 0.003,
+    "serper": 0.001,
+    "serpapi": 0.005,
+    "tavily": 0.001,
+    "exa": 0.003,
+    "tinyfish": 0.010,
+}
+
 
 def get_provider(name: str) -> SearchProvider:
     """Instantiate a provider by name. Raises ValueError if unknown or unconfigured."""

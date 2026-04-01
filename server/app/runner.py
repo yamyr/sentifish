@@ -12,7 +12,7 @@ from .config import settings
 from .custom_executor import execute_custom_tool
 from .judge import judge_results
 from .models import Dataset, EvalRun, QueryScore, RunStatus, ToolDefinition
-from .providers import SearchProvider, get_provider
+from .providers import PROVIDER_COST_PER_QUERY, SearchProvider, get_provider
 from .scorers import score_query
 
 logger = logging.getLogger(__name__)
@@ -83,6 +83,8 @@ async def _eval_query(
         except Exception as exc:
             logger.warning("Judge scoring failed for %s/%s: %s", provider.name, query[:40], exc)
 
+    cost = PROVIDER_COST_PER_QUERY.get(provider.name, 0.0)
+
     return QueryScore(
         query=query,
         provider=provider.name,
@@ -95,6 +97,7 @@ async def _eval_query(
         llm_judge_score=judge_score,
         llm_judge_reasoning=judge_reasoning,
         latency_ms=latency_ms,
+        cost_usd=cost,
         result_count=len(results),
         results=results,
     )
@@ -126,6 +129,8 @@ async def _eval_query_for_tool(
         except Exception as exc:
             logger.warning("Judge scoring failed: %s", exc)
 
+    cost = PROVIDER_COST_PER_QUERY.get(tool.builtin_provider or tool.slug, 0.0)
+
     return QueryScore(
         query=query,
         provider=tool.slug,
@@ -134,6 +139,7 @@ async def _eval_query_for_tool(
         llm_judge_score=judge_score,
         llm_judge_reasoning=judge_reasoning,
         latency_ms=latency_ms,
+        cost_usd=cost,
         result_count=len(results),
         results=results,
     )
