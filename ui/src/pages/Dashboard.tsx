@@ -15,6 +15,7 @@ import NewRunDialog from "@/components/dashboard/NewRunDialog";
 import NewDatasetDialog from "@/components/dashboard/NewDatasetDialog";
 import RunProgressPanel from "@/components/dashboard/RunProgressPanel";
 import DatasetList from "@/components/dashboard/DatasetList";
+import SchedulePanel from "@/components/dashboard/SchedulePanel";
 import { useRuns, useDemoRun } from "@/hooks/useApi";
 import { toast } from "sonner";
 
@@ -140,6 +141,8 @@ export default function Dashboard() {
           <ProviderComparison />
           <TrendChart />
         </div>
+
+            <SchedulePanel />
 
             <InsightCard />
 

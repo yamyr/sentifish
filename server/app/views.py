@@ -15,11 +15,12 @@ from fastapi.security import APIKeyHeader
 from . import datasets as ds
 from . import narrator
 from . import runner
+from . import scheduler
 from . import task_registry
 from . import tool_registry
 from .config import settings
 from .metric_recommender import AVAILABLE_METRICS
-from .models import EvalConfig, EvalMetricWeight
+from .models import EvalConfig, EvalMetricWeight, EvalSchedule
 from .providers import PROVIDERS, available_providers
 
 logger = logging.getLogger(__name__)
@@ -563,3 +564,48 @@ def get_run_report(run_id: str):
         "query_winners": query_winners,
         "duration_seconds": (run.completed_at or 0) - run.created_at,
     }
+
+
+# -- Schedules ---------------------------------------------------------------
+
+
+@router.get("/schedules")
+def list_schedules():
+    return {"schedules": [s.model_dump() for s in scheduler.list_schedules()]}
+
+
+@router.post("/schedules", dependencies=[Depends(_require_write_auth)])
+def create_schedule(body: dict):
+    try:
+        schedule = EvalSchedule(**body)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid schedule data")
+    # Validate dataset exists
+    try:
+        ds.load_dataset(schedule.dataset_name)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Dataset not found: {schedule.dataset_name!r}")
+    # Validate providers
+    unknown = set(schedule.providers) - set(PROVIDERS)
+    if unknown:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown provider(s): {', '.join(sorted(unknown))}",
+        )
+    scheduler.create_schedule(schedule)
+    return {"ok": True, "id": schedule.id}
+
+
+@router.delete("/schedules/{schedule_id}", dependencies=[Depends(_require_write_auth)])
+def delete_schedule_endpoint(schedule_id: str):
+    if not scheduler.delete_schedule(schedule_id):
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return {"ok": True, "deleted": schedule_id}
+
+
+@router.patch("/schedules/{schedule_id}/toggle", dependencies=[Depends(_require_write_auth)])
+def toggle_schedule_endpoint(schedule_id: str):
+    schedule = scheduler.toggle_schedule(schedule_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return {"ok": True, "enabled": schedule.enabled}
